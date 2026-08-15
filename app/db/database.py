@@ -14,6 +14,7 @@ import os
 import re
 import sqlite3
 import threading
+from collections import OrderedDict
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional
@@ -162,7 +163,11 @@ class _PgConnection:
 
     def executemany(self, sql: str, seq: Iterable[Iterable[Any]]) -> _Cursor:
         cur = self._conn.cursor()
-        cur.executemany(_traducir(sql), [tuple(p) for p in seq])
+        try:
+            cur.executemany(_traducir(sql), [tuple(p) for p in seq])
+        except Exception:
+            self._conn.rollback()  # ver el comentario en execute()
+            raise
         return _Cursor(cur)
 
     def executescript(self, sql: str) -> None:
@@ -266,6 +271,38 @@ def execute(sql: str, params: Iterable[Any] = ()) -> int:
 def execute_many(sql: str, seq: Iterable[Iterable[Any]]) -> None:
     with transaction() as conn:
         conn.executemany(sql, [tuple(p) for p in seq])
+
+
+class Lote:
+    """Acumula escrituras repetidas para mandarlas de una vez.
+
+    Con SQLite daba igual: escribir decenas de miles de filas sueltas en un
+    archivo local es instantáneo. Contra una base remota cada una es un viaje
+    de ida y vuelta por la red, y a ~60 ms el viaje una actualización completa
+    no cabía ni en media hora.
+
+    Aquí se juntan por sentencia y se mandan con `executemany`, que viaja una
+    sola vez. Solo sirve para escrituras cuyo resultado no haga falta en el
+    momento: dar de alta una fila devuelve su id y por eso sigue siendo directa.
+    """
+
+    def __init__(self, conn: Any, tamano: int = 500) -> None:
+        self._conn = conn
+        self._tamano = tamano
+        self._pendiente: "OrderedDict[str, List[tuple]]" = OrderedDict()
+
+    def execute(self, sql: str, params: Iterable[Any] = ()) -> None:
+        cola = self._pendiente.setdefault(sql, [])
+        cola.append(tuple(params))
+        if len(cola) >= self._tamano:
+            self._conn.executemany(sql, cola)
+            cola.clear()
+
+    def flush(self) -> None:
+        for sql, cola in self._pendiente.items():
+            if cola:
+                self._conn.executemany(sql, cola)
+                cola.clear()
 
 
 def rows_to_dicts(rows: Iterable[Any]) -> List[Dict[str, Any]]:

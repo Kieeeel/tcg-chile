@@ -13,7 +13,7 @@ from app import settings
 from app.core import attributes as attrs_module
 from app.core.matching import normalize_gtin, normalize_mpn, stable_key
 from app.core.normalize import normalize_name
-from app.db.database import get_connection, log, transaction
+from app.db.database import Lote, get_connection, log, transaction
 from app.scrapers.base import RawProduct
 from app.scrapers.http_client import HttpClient
 from app.scrapers.registry import build_adapter
@@ -233,6 +233,8 @@ def persist_products(
             row["external_id"]: dict(row) for row in existing_rows if row["external_id"]
         }
 
+        lote = Lote(conn)
+
         for record in records:
             existing = by_url.get(record["url"])
             if existing is None and record.get("external_id"):
@@ -242,10 +244,10 @@ def persist_products(
                 product_id = _insert_product(conn, record)
                 stats.new += 1
                 seen_ids.append(product_id)
-                _record_price(conn, product_id, record)
-                _record_stock(conn, product_id, record)
+                _record_price(conn, lote, product_id, record)
+                _record_stock(lote, product_id, record)
                 _event(
-                    conn, "new_product", store["id"], product_id, None,
+                    lote, "new_product", store["id"], product_id, None,
                     None, record["name"], None,
                     f"Nuevo producto en {store['name']}: {record['name']}",
                 )
@@ -256,14 +258,16 @@ def persist_products(
 
                 if changed:
                     stats.updated += 1
-                    _detect_changes(conn, store, existing, record, stats, min_hours)
+                    _detect_changes(conn, lote, store, existing, record, stats, min_hours)
                 else:
                     stats.unchanged += 1
 
-                _update_product(conn, product_id, record, changed)
+                _update_product(lote, product_id, record, changed)
 
-            _sync_identifiers(conn, product_id, record)
-            _sync_attributes(conn, product_id, record["_attributes"])
+            _sync_identifiers(lote, product_id, record)
+            _sync_attributes(lote, product_id, record["_attributes"])
+
+        lote.flush()
 
         # --- fichas sin cambios (304): solo se refresca "visto por última vez"
         for url in unchanged_urls:
@@ -272,10 +276,11 @@ def persist_products(
                 continue
             seen_ids.append(existing["id"])
             stats.unchanged += 1
-            conn.execute(
+            lote.execute(
                 "UPDATE store_products SET last_seen_at = datetime('now'), is_active = 1 WHERE id = ?",
                 (existing["id"],),
             )
+        lote.flush()
 
         # --- productos que ya no aparecen en la tienda --------------------
         if seen_ids:
@@ -286,16 +291,17 @@ def persist_products(
                 (store["id"], *seen_ids),
             ).fetchall()
             for row in missing:
-                conn.execute(
+                lote.execute(
                     "UPDATE store_products SET is_active = 0, last_changed_at = datetime('now') WHERE id = ?",
                     (row["id"],),
                 )
                 stats.removed += 1
                 _event(
-                    conn, "removed_product", store["id"], row["id"], None,
+                    lote, "removed_product", store["id"], row["id"], None,
                     row["name"], None, None,
                     f"Ya no aparece en {store['name']}: {row['name']}",
                 )
+            lote.flush()
 
     return stats
 
@@ -327,8 +333,8 @@ def _insert_product(conn, record: Dict[str, Any]) -> int:
     return int(cur.lastrowid)
 
 
-def _update_product(conn, product_id: int, record: Dict[str, Any], changed: bool) -> None:
-    conn.execute(
+def _update_product(lote, product_id: int, record: Dict[str, Any], changed: bool) -> None:
+    lote.execute(
         """UPDATE store_products SET
                external_id = COALESCE(?, external_id),
                name = ?, normalized_name = ?, name_key = ?, tokens = ?,
@@ -344,7 +350,9 @@ def _update_product(conn, product_id: int, record: Dict[str, Any], changed: bool
                quantity = ?, quantity_confidence = ?, units_total = ?, language = ?,
                content_hash = ?,
                last_seen_at = datetime('now'),
-               last_changed_at = CASE WHEN ? THEN datetime('now') ELSE last_changed_at END,
+               -- El `= 1` no sobra: SQLite acepta un entero como condición,
+               -- Postgres exige un booleano y rechaza CASE WHEN 1.
+               last_changed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE last_changed_at END,
                is_active = 1
            WHERE id = ?""",
         (
@@ -362,6 +370,7 @@ def _update_product(conn, product_id: int, record: Dict[str, Any], changed: bool
 
 def _detect_changes(
     conn,
+    lote,
     store: Dict[str, Any],
     existing: Dict[str, Any],
     record: Dict[str, Any],
@@ -376,17 +385,17 @@ def _detect_changes(
         pct = ((new_price - old_price) / old_price * 100.0) if old_price else None
         event_type = "price_drop" if new_price < old_price else "price_rise"
         _event(
-            conn, event_type, store["id"], existing["id"], None,
+            lote, event_type, store["id"], existing["id"], None,
             f"{old_price}", f"{new_price}", pct,
             f"{record['name']}: {old_price:,.0f} → {new_price:,.0f}".replace(",", "."),
         )
-        _record_price(conn, existing["id"], record)
-        conn.execute(
+        _record_price(conn, lote, existing["id"], record)
+        lote.execute(
             "UPDATE store_products SET last_price_change_at = datetime('now') WHERE id = ?",
             (existing["id"],),
         )
     elif new_price is not None:
-        _record_price(conn, existing["id"], record, min_hours=min_hours)
+        _record_price(conn, lote, existing["id"], record, min_hours=min_hours)
 
     old_stock = existing.get("stock_status")
     new_stock = record.get("stock_status")
@@ -401,18 +410,19 @@ def _detect_changes(
         else:
             event_type = "stock_change"
             message = f"Cambio de disponibilidad: {record['name']}"
-        _event(conn, event_type, store["id"], existing["id"], None, old_stock, new_stock, None, message)
-        _record_stock(conn, existing["id"], record)
+        _event(lote, event_type, store["id"], existing["id"], None, old_stock, new_stock, None, message)
+        _record_stock(lote, existing["id"], record)
 
     if existing.get("name") != record["name"]:
         _event(
-            conn, "name_change", store["id"], existing["id"], None,
+            lote, "name_change", store["id"], existing["id"], None,
             existing.get("name"), record["name"], None,
             f"Cambio de nombre en {store['name']}",
         )
 
 
-def _record_price(conn, store_product_id: int, record: Dict[str, Any], min_hours: float = 0.0) -> None:
+def _record_price(conn, lote, store_product_id: int, record: Dict[str, Any],
+                  min_hours: float = 0.0) -> None:
     if record.get("price") is None:
         return
     if min_hours > 0:
@@ -428,20 +438,20 @@ def _record_price(conn, store_product_id: int, record: Dict[str, Any], min_hours
                     return
             except (TypeError, ValueError):
                 pass
-    conn.execute(
+    lote.execute(
         "INSERT INTO price_history (store_product_id, price, currency) VALUES (?, ?, ?)",
         (store_product_id, record["price"], record.get("currency", "CLP")),
     )
 
 
-def _record_stock(conn, store_product_id: int, record: Dict[str, Any]) -> None:
-    conn.execute(
+def _record_stock(lote, store_product_id: int, record: Dict[str, Any]) -> None:
+    lote.execute(
         "INSERT INTO stock_history (store_product_id, stock_status) VALUES (?, ?)",
         (store_product_id, record.get("stock_status", "unknown")),
     )
 
 
-def _sync_identifiers(conn, store_product_id: int, record: Dict[str, Any]) -> None:
+def _sync_identifiers(lote, store_product_id: int, record: Dict[str, Any]) -> None:
     rows: List[Tuple[str, str, str, int]] = []
     for gtin in record["_gtins"]:
         rows.append(("gtin", gtin, gtin, 1))
@@ -454,7 +464,7 @@ def _sync_identifiers(conn, store_product_id: int, record: Dict[str, Any]) -> No
             ("external_id", record["external_id"], str(record["external_id"]).strip().upper(), 7)
         )
     for kind, value, normalized, priority in rows:
-        conn.execute(
+        lote.execute(
             """INSERT INTO product_identifiers
                    (store_product_id, kind, value, normalized_value, priority)
                VALUES (?, ?, ?, ?, ?)
@@ -463,7 +473,7 @@ def _sync_identifiers(conn, store_product_id: int, record: Dict[str, Any]) -> No
         )
 
 
-def _sync_attributes(conn, store_product_id: int, extracted) -> None:
+def _sync_attributes(lote, store_product_id: int, extracted) -> None:
     pairs = {
         "game": (extracted.game, 1.0),
         "set": (extracted.set_code, 1.0),
@@ -475,7 +485,7 @@ def _sync_attributes(conn, store_product_id: int, extracted) -> None:
     for key, (value, confidence) in pairs.items():
         if value is None:
             continue
-        conn.execute(
+        lote.execute(
             """INSERT INTO product_attributes
                    (entity_type, entity_id, key, value, confidence, source)
                VALUES ('store_product', ?, ?, ?, ?, ?)
@@ -491,7 +501,7 @@ def _sync_attributes(conn, store_product_id: int, extracted) -> None:
 
 
 def _event(
-    conn,
+    lote,
     event_type: str,
     store_id: Optional[int],
     store_product_id: Optional[int],
@@ -501,7 +511,7 @@ def _event(
     pct_change: Optional[float] = None,
     message: Optional[str] = None,
 ) -> None:
-    conn.execute(
+    lote.execute(
         """INSERT INTO events (type, store_id, store_product_id, product_id,
                                old_value, new_value, pct_change, message)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",

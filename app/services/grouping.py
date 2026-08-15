@@ -24,7 +24,7 @@ from app.core.matching import (
     ScoringConfig,
     stable_key,
 )
-from app.db.database import get_connection, log, transaction
+from app.db.database import Lote, get_connection, log, transaction
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +196,7 @@ def rebuild_groups() -> Dict[str, Any]:
 
     new_matches = 0
     with transaction() as conn:
+        lote = Lote(conn)
         # --- reutilizar los IDs de producto maestro existentes -------------
         claimed: set = set()
         assignments: List[Tuple[List[int], Optional[int]]] = []
@@ -226,7 +227,7 @@ def rebuild_groups() -> Dict[str, Any]:
 
             if reuse_id is not None:
                 product_id = reuse_id
-                conn.execute(
+                lote.execute(
                     """UPDATE products SET
                            canonical_name = ?, display_name = ?, normalized_name = ?,
                            game = ?, set_code = ?, set_name = ?,
@@ -271,13 +272,13 @@ def rebuild_groups() -> Dict[str, Any]:
                 if previous != product_id and len(group) > 1:
                     new_matches += 1
 
-                conn.execute(
+                lote.execute(
                     """UPDATE store_products
                        SET product_id = ?, match_score = ?, match_method = ?
                        WHERE id = ?""",
                     (product_id, score, method, sp_id),
                 )
-                conn.execute(
+                lote.execute(
                     """INSERT INTO product_matches
                            (product_id, store_product_id, score, method, breakdown, anchor_id)
                        VALUES (?, ?, ?, ?, ?, ?)
@@ -289,6 +290,11 @@ def rebuild_groups() -> Dict[str, Any]:
                            anchor_id = excluded.anchor_id""",
                     (product_id, sp_id, score, method, breakdown, anchor),
                 )
+
+        # El DELETE de abajo mira `store_products.product_id`, que se acaba de
+        # asignar en el bucle: hay que vaciar el lote antes o borraría lo que
+        # todavía no se ha escrito.
+        lote.flush()
 
         # --- productos maestros que se quedaron sin ofertas ----------------
         conn.execute(
