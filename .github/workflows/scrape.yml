@@ -1,0 +1,43 @@
+name: Actualizar precios
+
+# Cada 4 horas. Los horarios de GitHub NO son puntuales: se retrasan bastante
+# en horas punta. Para un intervalo de 4 h da igual, pero conviene saberlo.
+#
+# GitHub desactiva los cron de repositorios sin actividad durante 60 días;
+# basta con un commit —o pulsar «Run workflow»— para reactivarlos.
+on:
+  schedule:
+    - cron: "17 */4 * * *"   # a y 17 para no coincidir con el pico en punto
+  workflow_dispatch:          # y a mano cuando quieras
+
+concurrency:
+  # Si una pasada se alarga, la siguiente espera en vez de solaparse: dos
+  # scrapings a la vez sobre la misma base se pisarían al reagrupar.
+  group: scraping
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Actualizar tiendas y publicar ofertas
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python run.py --update
+
+      - name: Resumen
+        if: always()
+        run: echo "Terminado a las $(date -u '+%H:%M UTC')" >> $GITHUB_STEP_SUMMARY

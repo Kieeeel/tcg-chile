@@ -1,0 +1,29 @@
+# =====================================================================
+# Piedra Bruja (https://piedrabruja.cl) — Shopify.
+#   Verificado: /collections/pokemon/products.json devuelve JSON.
+#
+# 45 productos, una variante cada uno (el idioma va en el título:
+# "Mega Evolution Pitch Black Booster ING"). Publica SKU propio
+# —PKU10425BS— pero no código de barras, así que la agrupación se apoya en
+# set + tipo + similitud de nombre.
+#
+# El sufijo "ING" lo reconoce el detector de idioma por el patrón `loose`
+# \bing\b; "ESP" hace lo propio con el español.
+# =====================================================================
+
+code: piedrabruja
+name: "Piedra Bruja"
+base_url: "https://piedrabruja.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon
+    name: "Pokémon"
+    game: pokemon
+
+page_size: 250
+max_pages: 10

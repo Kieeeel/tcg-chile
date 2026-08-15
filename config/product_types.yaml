@@ -1,0 +1,350 @@
+# =====================================================================
+# Catálogo de tipos de producto.
+#
+# `units` describe cuántos sobres (boosters) contiene el producto, lo que
+# permite calcular "precio por booster". `units_confidence` indica cuánta
+# confianza tiene ese valor por defecto cuando el nombre no dice la cantidad.
+#
+# `incompatible_with` fuerza que dos tipos NUNCA se agrupen aunque el nombre
+# se parezca mucho (ej: Booster Bundle vs Booster Box).
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# Categorías del filtro
+#
+# Los 26 tipos de abajo son los que necesita el matching: distinguir un
+# Booster Bundle de una Booster Box es justo lo que evita agrupar productos
+# que no son el mismo. Pero como menú desplegable son demasiados.
+#
+# Estas categorías son SOLO para el filtro de la pantalla de búsqueda. No
+# tocan la agrupación: por dentro cada producto conserva su tipo exacto, que
+# es el que se ve en la ficha y el que decide qué se compara con qué.
+#
+# Para recolocar un tipo, muévelo de lista y recarga la configuración.
+# ---------------------------------------------------------------------
+categories:
+  - code: etb
+    name: "ETB"
+    types: [elite_trainer_box]
+
+  - code: boosters
+    name: "Boosters"
+    types: [booster_pack, sleeved_booster, booster_bundle, booster_box,
+            half_booster_box, booster_case]
+
+  - code: blisters
+    name: "Blisters"
+    types: [blister]
+
+  - code: tins
+    name: "Tins"
+    types: [tin, mini_tin]
+
+  - code: colecciones
+    name: "Colecciones"
+    types: [ultra_premium_collection, premium_collection, special_collection,
+            collection_box, poster_collection, binder_collection]
+
+  # Build & Battle va aquí y no en Blisters: es producto de jugar, formato
+  # prerelease, con su mazo dentro.
+  - code: decks
+    name: "Decks y juego"
+    types: [theme_deck, battle_deck, starter_deck, structure_deck, deck,
+            build_and_battle_box, build_and_battle_stadium]
+
+  - code: otros
+    name: "Otros"
+    types: [surprise_box, single_card, accessory]
+
+types:
+  - code: booster_pack
+    name: "Booster Pack"
+    tokens: ["booster_pack"]
+    specificity: 30
+    unit_comparable: true
+    units: 1
+    units_confidence: 0.95
+    unit_name: "booster"
+
+  - code: sleeved_booster
+    name: "Sleeved Booster"
+    tokens: ["sleeved_booster"]
+    specificity: 85
+    unit_comparable: true
+    units: 1
+    units_confidence: 0.9
+    unit_name: "booster"
+
+  - code: booster_bundle
+    name: "Booster Bundle"
+    tokens: ["booster_bundle"]
+    specificity: 65
+    unit_comparable: true
+    units: 6
+    units_confidence: 0.85
+    unit_name: "booster"
+
+  - code: booster_box
+    name: "Booster Box"
+    tokens: ["booster_box"]
+    specificity: 60
+    unit_comparable: true
+    units: 36
+    units_confidence: 0.6
+    unit_name: "booster"
+
+  - code: half_booster_box
+    name: "Half Booster Box"
+    tokens: ["half_booster_box"]
+    specificity: 68
+    unit_comparable: true
+    units: 18
+    units_confidence: 0.6
+    unit_name: "booster"
+
+  - code: booster_case
+    name: "Booster Case"
+    tokens: ["booster_case"]
+    specificity: 70
+    unit_comparable: true
+    units: 216
+    units_confidence: 0.4
+    unit_name: "booster"
+
+  - code: elite_trainer_box
+    name: "Elite Trainer Box"
+    tokens: ["elite_trainer_box"]
+    specificity: 85
+    unit_comparable: true
+    units: 9
+    units_confidence: 0.7
+    unit_name: "booster"
+
+  - code: build_and_battle_box
+    name: "Build & Battle Box"
+    tokens: ["build_and_battle_box"]
+    specificity: 78
+    unit_comparable: true
+    units: 4
+    units_confidence: 0.8
+    unit_name: "booster"
+
+  - code: build_and_battle_stadium
+    name: "Build & Battle Stadium"
+    tokens: ["build_and_battle_stadium"]
+    specificity: 80
+    unit_comparable: true
+    units: 10
+    units_confidence: 0.7
+    unit_name: "booster"
+
+  - code: ultra_premium_collection
+    name: "Ultra Premium Collection"
+    tokens: ["ultra_premium_collection"]
+    specificity: 95
+    unit_comparable: false
+    units: 16
+    units_confidence: 0.4
+    unit_name: "booster"
+
+  - code: premium_collection
+    name: "Premium Collection"
+    tokens: ["premium_collection"]
+    specificity: 88
+    unit_comparable: false
+    units: 6
+    units_confidence: 0.35
+    unit_name: "booster"
+
+  - code: special_collection
+    name: "Special Collection"
+    tokens: ["special_collection"]
+    specificity: 86
+    unit_comparable: false
+    units: 4
+    units_confidence: 0.3
+    unit_name: "booster"
+
+  - code: collection_box
+    name: "Collection Box"
+    tokens: ["collection_box"]
+    specificity: 75
+    unit_comparable: false
+    units: 4
+    units_confidence: 0.3
+    unit_name: "booster"
+
+  - code: poster_collection
+    name: "Poster Collection"
+    tokens: ["poster_collection"]
+    specificity: 84
+    unit_comparable: false
+    units: 3
+    units_confidence: 0.4
+    unit_name: "booster"
+
+  - code: binder_collection
+    name: "Binder Collection"
+    tokens: ["binder_collection"]
+    specificity: 84
+    unit_comparable: false
+    units: 2
+    units_confidence: 0.4
+    unit_name: "booster"
+
+  - code: surprise_box
+    name: "Surprise Box"
+    tokens: ["surprise_box"]
+    specificity: 80
+    unit_comparable: false
+    units: 8
+    units_confidence: 0.3
+    unit_name: "booster"
+
+  - code: tin
+    name: "Tin"
+    tokens: ["tin"]
+    specificity: 70
+    unit_comparable: false
+    units: 4
+    units_confidence: 0.4
+    unit_name: "booster"
+
+  - code: mini_tin
+    name: "Mini Tin"
+    tokens: ["mini_tin"]
+    specificity: 82
+    unit_comparable: false
+    units: 2
+    units_confidence: 0.5
+    unit_name: "booster"
+
+  - code: blister
+    name: "Blister"
+    tokens: ["blister"]
+    specificity: 90
+    unit_comparable: false
+    units: 3
+    units_confidence: 0.5
+    unit_name: "booster"
+
+  - code: theme_deck
+    name: "Theme Deck"
+    tokens: ["theme_deck"]
+    specificity: 80
+    unit_comparable: false
+    units: 0
+    units_confidence: 0.9
+    unit_name: "mazo"
+
+  - code: battle_deck
+    name: "Battle Deck"
+    tokens: ["battle_deck"]
+    specificity: 80
+    unit_comparable: false
+    units: 0
+    units_confidence: 0.9
+    unit_name: "mazo"
+
+  - code: starter_deck
+    name: "Starter Deck"
+    tokens: ["starter_deck"]
+    specificity: 80
+    unit_comparable: false
+    units: 0
+    units_confidence: 0.9
+    unit_name: "mazo"
+
+  - code: structure_deck
+    name: "Structure Deck"
+    tokens: ["structure_deck"]
+    specificity: 80
+    unit_comparable: false
+    units: 0
+    units_confidence: 0.9
+    unit_name: "mazo"
+
+  - code: deck
+    name: "Deck"
+    tokens: ["deck"]
+    specificity: 40
+    unit_comparable: false
+    units: 0
+    units_confidence: 0.8
+    unit_name: "mazo"
+
+  - code: single_card
+    name: "Carta individual"
+    tokens: ["single_card"]
+    specificity: 100
+    unit_comparable: false
+    units: 0
+    units_confidence: 0.9
+    unit_name: "carta"
+
+  # Accesorios: fundas, protectores, carpetas, dados, monedas...
+  # Especificidad máxima a propósito: un "Protector Caja Plástica para Elite
+  # Trainer Box" es un accesorio, no un ETB. Sin esto se colaba en el ranking
+  # de precio por sobre como si trajera nueve sobres.
+  - code: accessory
+    name: "Accesorio"
+    tokens: ["accessory"]
+    specificity: 110
+    unit_comparable: false
+    units: 0
+    units_confidence: 0.95
+    unit_name: "unidad"
+
+# ---------------------------------------------------------------------
+# Expresiones regulares para extraer la cantidad. Se aplican sobre el
+# nombre YA normalizado (minúsculas, sin acentos ni puntuación) y luego,
+# si no hubo coincidencia, sobre la descripción.
+#
+# Se prueban EN ORDEN y gana la primera que coincida, por eso los patrones
+# de "contenido" van antes que los de "multiplicador":
+#   "Bundle x6 Boosters"  -> contenido 6 sobres   (no 6 bundles)
+#   "Booster Pack x10"    -> multiplicador 10
+#
+# kind:
+#   contents   -> el número indica cuántos sobres trae el producto
+#   multiplier -> el número indica cuántas unidades del producto se venden
+# ---------------------------------------------------------------------
+quantity_patterns:
+  # Un "Nx" al PRINCIPIO del nombre siempre es un lote, nunca el contenido:
+  #   "2x Ascended Heroes Blister 2 Pack"  -> 2 blísteres (no 2 sobres)
+  # Va primero porque si no, el "2 Pack" del final se llevaría la coincidencia
+  # y el lote acabaría comparándose contra la unidad suelta.
+  - pattern: '^\s*(\d{1,3})\s?x\s'
+    kind: multiplier
+    confidence: 0.9
+  - pattern: '\b(\d{1,3})\s+booster\s+packs?\b'
+    kind: contents
+    confidence: 0.95
+  - pattern: '\b(\d{1,3})\s+boosters?\b'
+    kind: contents
+    confidence: 0.9
+  - pattern: '\b(\d{1,3})\s+sobres?\b'
+    kind: contents
+    confidence: 0.9
+  - pattern: '\b(\d{1,3})\s+packs?\b'
+    kind: contents
+    confidence: 0.85
+  - pattern: '\bpack\s+de\s+(\d{1,3})\b'
+    kind: contents
+    confidence: 0.85
+  - pattern: '\bcontiene\s+(\d{1,3})\s+(?:sobres?|boosters?|packs?)\b'
+    kind: contents
+    confidence: 0.8
+  - pattern: '\bx\s?(\d{1,3})\b'
+    kind: multiplier
+    confidence: 0.85
+  - pattern: '\b(\d{1,3})\s?x\b'
+    kind: multiplier
+    confidence: 0.8
+
+# Números que nunca se interpretan como cantidad (son nombres de expansión).
+quantity_blacklist: [151, 2024, 2025, 2026]
+
+# Rango razonable para una cantidad de sobres.
+quantity_min: 1
+quantity_max: 500

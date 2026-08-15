@@ -1,0 +1,44 @@
+game: onepiece
+game_name: "One Piece"
+
+sets:
+  - code: op01
+    name: "Romance Dawn"
+    aliases: ["romance dawn", "op01", "op 01"]
+    released: "2022-12-02"
+  - code: op02
+    name: "Paramount War"
+    aliases: ["paramount war", "op02", "op 02"]
+    released: "2023-03-10"
+  - code: op03
+    name: "Pillars of Strength"
+    aliases: ["pillars of strength", "op03", "op 03"]
+    released: "2023-06-30"
+  - code: op04
+    name: "Kingdoms of Intrigue"
+    aliases: ["kingdoms of intrigue", "op04", "op 04"]
+    released: "2023-09-22"
+  - code: op05
+    name: "Awakening of the New Era"
+    aliases: ["awakening of the new era", "op05", "op 05"]
+    released: "2023-12-08"
+  - code: op06
+    name: "Wings of the Captain"
+    aliases: ["wings of the captain", "op06", "op 06"]
+    released: "2024-03-08"
+  - code: op07
+    name: "500 Years in the Future"
+    aliases: ["500 years in the future", "op07", "op 07"]
+    released: "2024-06-28"
+  - code: op08
+    name: "Two Legends"
+    aliases: ["two legends", "op08", "op 08"]
+    released: "2024-09-13"
+  - code: op09
+    name: "Emperors in the New World"
+    aliases: ["emperors in the new world", "op09", "op 09"]
+    released: "2024-12-13"
+  - code: op10
+    name: "Royal Blood"
+    aliases: ["royal blood", "op10", "op 10"]
+    released: "2025-03-21"

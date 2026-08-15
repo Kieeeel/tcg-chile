@@ -1,0 +1,40 @@
+# =====================================================================
+# El Panteón (https://www.elpanteon.cl) — tienda WooCommerce.
+#
+# Cómo supe que era WooCommerce:
+#   https://www.elpanteon.cl/wp-json/wc/store/v1/products  devuelve JSON
+#
+# La Store API de WooCommerce es pública y no necesita autenticación. El
+# adaptador ya sabe leer nombre, permalink, precio (viene en la unidad
+# mínima de la moneda), stock, SKU e imágenes.
+# =====================================================================
+
+code: elpanteon
+name: "El Panteón"
+base_url: "https://www.elpanteon.cl"
+adapter: woocommerce
+enabled: true
+currency: CLP
+country: CL
+
+# Las categorías de esta tienda son por TIPO de producto (elite-trainer-box,
+# booster-bundle, case-sellado...), no por juego, así que no filtramos por
+# categoría: recorremos el catálogo completo. Como solo vende Pokémon,
+# `default_game` cubre los productos cuyo nombre no dice la marca.
+default_game: pokemon
+
+# Esta tienda sí escribe el idioma en el nombre ("ESPAÑOL", "INGLES") y se
+# detecta solo. Si una tienda no lo hiciera y vendiera un único idioma, se
+# declararía aquí:
+#   default_language: es
+page_size: 100
+max_pages: 12
+
+# Notas del catálogo (192 productos):
+#   · No publica SKU ni código de barras -> la agrupación se apoya en
+#     expansión + tipo de producto + similitud de nombre.
+#   · Vende lotes: "Case x 10 - Surging Sparks - Elite Trainer Box",
+#     "SET 3 X ELITE TRAINER BOX". El multiplicador se detecta solo y evita
+#     que un lote de 10 se compare contra una unidad suelta.
+#   · Mete la preventa entre corchetes: "[PREVENTA] [30/10/2026]". La fecha
+#     la limpia `noise_patterns` y "preventa" ya es una stopword.

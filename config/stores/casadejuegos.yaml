@@ -1,0 +1,38 @@
+# =====================================================================
+# Casa de Juegos (https://www.casadejuegos.cl) — Shopify.
+#   Verificado: /collections/pokemon/products.json devuelve JSON.
+#
+# 47 productos, 50 variantes. No publica SKU ni código de barras, así que la
+# agrupación se apoya en set + tipo + similitud de nombre.
+#
+# LIMITACIÓN CONOCIDA
+# -------------------
+# Tres productos de esta tienda anuncian los dos idiomas en el mismo título:
+#
+#   Rival Battle deck Steven - Ingles y Español
+#   Pokemon TCG: Mega Evolution Perfect Order - Booster Bundle Ingles y esp
+#   Pokémon Trainer's Toolkit 2025 - Ingles y español
+#
+# El detector de idioma no sabe de ambigüedad: se queda con la última marca
+# que encuentra, así que los etiqueta como español y no se comparan contra
+# los ingleses de otras tiendas. Son 3 de 47 y tienen arreglo a mano:
+# Administración → Revisión permite fijarles el idioma (o dejarlo en blanco,
+# que los hace comparables con ambos).
+# =====================================================================
+
+code: casadejuegos
+name: "Casa de Juegos"
+base_url: "https://www.casadejuegos.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon
+    name: "Pokémon"
+    game: pokemon
+
+page_size: 250
+max_pages: 10

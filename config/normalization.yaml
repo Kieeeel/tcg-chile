@@ -1,0 +1,450 @@
+# =====================================================================
+# Diccionario de normalización de nombres.
+#
+# Flujo:  texto crudo -> minúsculas / sin acentos / sin puntuación
+#         -> equivalencias (frases) -> tokens -> quitar stopwords
+#
+# Las equivalencias se aplican de frase más larga a más corta, por lo que
+# "elite trainer box" se resuelve antes que "box".
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# Equivalencias: alias  ->  token canónico
+# El token canónico usa guiones bajos para mantenerse como una sola pieza.
+# ---------------------------------------------------------------------
+equivalences:
+  # --- Marca / juego -------------------------------------------------
+  "pokemon trading card game": "pokemon"
+  "pokemon tcg": "pokemon"
+  "juego de cartas coleccionables pokemon": "pokemon"
+  "magic the gathering": "magic"
+  "mtg": "magic"
+  "yu gi oh": "yugioh"
+  "yugi oh": "yugioh"
+  "ygo": "yugioh"
+  "one piece card game": "onepiece"
+  "one piece": "onepiece"
+  "disney lorcana": "lorcana"
+
+  # --- Tipos de producto ---------------------------------------------
+  "elite trainer box": "elite_trainer_box"
+  "elite trainer box plus": "elite_trainer_box"
+  "caja de entrenador elite": "elite_trainer_box"
+  "caja entrenador elite": "elite_trainer_box"
+  "etb": "elite_trainer_box"
+
+  "booster bundle": "booster_bundle"
+  "bundle de sobres": "booster_bundle"
+  "booster bundles": "booster_bundle"
+  "bundle": "booster_bundle"
+  "bb": "booster_bundle"
+
+  "booster box": "booster_box"
+  "booster boxes": "booster_box"
+  "caja de sobres": "booster_box"
+  "display box": "booster_box"
+  "display": "booster_box"
+  # "box" suelto solo llega aquí si antes no coincidió una frase más larga
+  # ("elite trainer box", "collection box", "build and battle box"...).
+  "box": "booster_box"
+
+  "booster pack": "booster_pack"
+  "booster packs": "booster_pack"
+  "sobre individual": "booster_pack"
+  "paquete de sobres": "booster_pack"
+  "boosters": "booster_pack"
+  "booster": "booster_pack"
+  "sobres": "booster_pack"
+  "sobre": "booster_pack"
+  "packs": "booster_pack"
+  "pack": "booster_pack"
+
+  "build and battle box": "build_and_battle_box"
+  "build battle box": "build_and_battle_box"
+  "build and battle stadium": "build_and_battle_stadium"
+  "build battle stadium": "build_and_battle_stadium"
+
+  "ultra premium collection": "ultra_premium_collection"
+  "upc box": "ultra_premium_collection"
+  "premium collection": "premium_collection"
+  "special collection": "special_collection"
+  "collection box": "collection_box"
+  "coleccion especial": "special_collection"
+  "caja de coleccion": "collection_box"
+
+  "poster collection": "poster_collection"
+  "binder collection": "binder_collection"
+  "surprise box": "surprise_box"
+  "mini tin": "mini_tin"
+  "tin": "tin"
+  "lata": "tin"
+
+  "theme deck": "theme_deck"
+  "battle deck": "battle_deck"
+  "starter deck": "starter_deck"
+  "structure deck": "structure_deck"
+  "mazo": "deck"
+  "baraja": "deck"
+
+  "checklane blister": "blister"
+  "three pack blister": "blister"
+  "3 pack blister": "blister"
+  "blister": "blister"
+
+  # --- Accesorios -----------------------------------------------------
+  # Van DESPUÉS de "sleeved booster" en la resolución porque las frases más
+  # largas ganan siempre: "Sleeved Booster Pack" sigue siendo un producto
+  # sellado, mientras que unas "Sleeves" sueltas son un accesorio.
+  "protector de caja": "accessory"
+  "caja plastica": "accessory"
+  "magnetic holder": "accessory"
+  "top loader": "accessory"
+  "toploader": "accessory"
+  "deck box": "accessory"
+  "deckbox": "accessory"
+  "protectores": "accessory"
+  "protector": "accessory"
+  "fundas": "accessory"
+  "funda": "accessory"
+  "sleeves": "accessory"
+  "carpetas": "accessory"
+  "carpeta": "accessory"
+  "archivador": "accessory"
+  "portfolio": "accessory"
+  "binder": "accessory"
+  "playmat": "accessory"
+  "tapete": "accessory"
+  "dados": "accessory"
+  "dado": "accessory"
+  "monedas": "accessory"
+  "moneda": "accessory"
+  "pin": "accessory"
+
+  "sleeved booster": "sleeved_booster"
+  "half booster box": "half_booster_box"
+  "booster case": "booster_case"
+  "case": "booster_case"
+
+  # --- Idioma ---------------------------------------------------------
+  "en ingles": "ingles"
+  "en espanol": "espanol"
+  "en japones": "japones"
+  "english": "ingles"
+  "spanish": "espanol"
+  "japanese": "japones"
+  "japones": "japones"
+
+  # --- Ruido comercial frecuente --------------------------------------
+  "totalmente nuevo": "nuevo"
+  "envio gratis": ""
+  "entrega inmediata": ""
+  "stock disponible": ""
+  "edicion limitada": "limitada"
+
+# ---------------------------------------------------------------------
+# Stopwords: palabras que no aportan a la identidad del producto.
+# NUNCA se eliminan los tokens listados en `protected_tokens` ni los
+# tokens canónicos generados por `equivalences` (los que llevan "_").
+# ---------------------------------------------------------------------
+stopwords:
+  - "the"
+  - "and"
+  - "of"
+  - "de"
+  - "del"
+  - "la"
+  - "el"
+  - "los"
+  - "las"
+  - "un"
+  - "una"
+  - "para"
+  - "con"
+  - "por"
+  - "en"
+  - "y"
+  - "o"
+  - "nuevo"
+  - "nueva"
+  - "new"
+  - "original"
+  - "oficial"
+  - "official"
+  - "sellado"
+  - "sellada"
+  - "sealed"
+  - "producto"
+  - "juego"
+  - "carta"
+  - "cartas"
+  - "coleccionable"
+  - "coleccionables"
+  - "trading"
+  - "card"
+  - "game"
+  - "tcg"
+  - "envio"
+  - "gratis"
+  - "importado"
+  - "preventa"
+  - "preorder"
+  - "remate"
+  - "liquidacion"
+  - "promocion"
+  - "descuento"
+  - "outlet"
+  - "stock"
+  - "disponible"
+  - "unidad"
+  - "unidades"
+  - "edicion"
+  - "version"
+
+# ---------------------------------------------------------------------
+# Tokens protegidos: aunque aparezcan en `stopwords` jamás se eliminan.
+# Los números y los tokens canónicos con "_" están protegidos siempre.
+# ---------------------------------------------------------------------
+protected_tokens:
+  # "x" e "y" distinguen productos reales (Mega Charizard X / Mega Charizard Y)
+  # y además "y" es la conjunción castellana, que está en las stopwords: sin
+  # protegerla, las dos latas se convertirían en el mismo producto.
+  - "x"
+  - "y"
+  - "151"
+  - "pokemon"
+  - "magic"
+  - "yugioh"
+  - "onepiece"
+  - "lorcana"
+  - "prismatic"
+  - "evolutions"
+  - "surging"
+  - "sparks"
+  - "twilight"
+  - "masquerade"
+  - "obsidian"
+  - "flames"
+  - "paldea"
+  - "paradox"
+  - "rift"
+  - "temporal"
+  - "forces"
+  - "stellar"
+  - "crown"
+  - "journey"
+  - "together"
+  - "destined"
+  - "rivals"
+  - "black"
+  - "bolt"
+  - "white"
+  - "flare"
+  - "shrouded"
+  - "fable"
+  - "crimson"
+  - "haze"
+  - "scarlet"
+  - "violet"
+  - "sword"
+  - "shield"
+  - "brilliant"
+  - "stars"
+  - "astral"
+  - "radiance"
+  - "lost"
+  - "origin"
+  - "silver"
+  - "tempest"
+  - "crown"
+  - "zenith"
+  - "celebrations"
+  - "evolving"
+  - "skies"
+  - "fusion"
+  - "strike"
+  - "chilling"
+  - "reign"
+  - "battle"
+  - "styles"
+  - "vivid"
+  - "voltage"
+  - "champions"
+  - "path"
+  - "darkness"
+  - "ablaze"
+  - "rebel"
+  - "clash"
+  - "hidden"
+  - "fates"
+  - "shining"
+  - "mega"
+
+# ---------------------------------------------------------------------
+# Ruido a eliminar del nombre antes de tokenizar.
+#
+# Son expresiones regulares que se aplican sobre el nombre ya en minúsculas
+# y sin acentos, pero con los paréntesis todavía presentes. Sirven para las
+# tiendas que meten fechas de preventa o trimestres dentro del título:
+#
+#   "(Preventa 1 - 04/12/26) 30th Celebration Booster Bundle Inglés"
+#      -> "30th celebration booster bundle ingles"
+#
+# Sin esto, "04", "12" y "26" sobrevivirían como tokens (los números están
+# protegidos porque suelen ser el nombre del set, como "151") y ensuciarían
+# la comparación entre tiendas.
+# ---------------------------------------------------------------------
+noise_patterns:
+  - '\((?:\s*pre-?venta|\s*pre-?order|\s*pre-?sale)[^)]*\)'   # (Preventa 2 - 16/09/26)
+  # "(Q4 2026)" -> se quita el trimestre pero SE CONSERVA el año: en
+  # accesorios (portfolios, dados) el año es lo único que distingue una
+  # edición de otra.
+  - '\bq[1-4]\s+(?=20\d{2}\b)'
+  - '\b\d{1,2}/\d{1,2}/\d{2,4}\b'                             # fechas sueltas
+  - '\b\d{1,2}\s*de\s*(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b'
+  # Etiquetas comerciales entre corchetes: "[OFERTA DE REMATE]", "[LIQUIDACIÓN]".
+  # No describen el producto, solo la promoción, y sin quitarlas la misma
+  # carta en oferta no se compara con la misma carta a precio normal.
+  - '\[[^\]]*\b(oferta|remate|liquidacion|promocion|descuento|outlet)\b[^\]]*\]'
+
+# ---------------------------------------------------------------------
+# Nombres de SERIE (no de expansión). Aparecen en casi todos los productos
+# de una línea ("Scarlet & Violet 151", "Scarlet & Violet Surging Sparks")
+# y no distinguen un producto de otro.
+#
+# Solo se descartan del texto comparado CUANDO la expansión ya se identificó:
+# si el set no se pudo detectar, estas palabras se conservan porque entonces
+# sí son lo único que diferencia al producto.
+# ---------------------------------------------------------------------
+series_tokens:
+  - "scarlet"
+  - "violet"
+  - "sword"
+  - "shield"
+  - "sun"
+  - "moon"
+  - "xy"
+  - "base"
+
+# ---------------------------------------------------------------------
+# Reemplazos de caracteres aplicados antes de tokenizar.
+# ---------------------------------------------------------------------
+char_replacements:
+  "&": " and "
+  "+": " plus "
+  "×": " x "
+  "°": " "
+  "™": " "
+  "®": " "
+  "©": " "
+
+# ---------------------------------------------------------------------
+# Idiomas.
+#
+# El idioma es parte de la IDENTIDAD del producto: un Elite Trainer Box en
+# español y uno en inglés son productos distintos, con precios distintos, y
+# el sistema nunca los agrupa. Por eso conviene detectarlo bien.
+#
+# Las expresiones se aplican sobre el nombre ya en minúsculas y sin acentos,
+# en dos pasadas:
+#
+#   `strict` : palabras completas e inequívocas -> se prueban primero
+#   `loose`  : abreviaturas, más frágiles -> solo si ninguna strict coincidió
+#
+# Las de `loose` van ancladas al final del nombre o entre separadores para
+# no confundirse con palabras corrientes del castellano: "es" y "en" son
+# preposiciones, así que solo cuentan al final ("... Booster Box ES").
+# ---------------------------------------------------------------------
+languages:
+  - code: es
+    name: "Español"
+    strict:    ['\b(espanol|espanola|castellano|spanish)\b']
+    delimited: ['[\[\(]\s*(es|esp|spa)\s*[\]\)]']
+    loose:     ['\besp\b', '\bspa\b', '\bes$']
+
+  - code: en
+    name: "Inglés"
+    strict:    ['\b(ingles|inglesa|english)\b']
+    delimited: ['[\[\(]\s*(en|ing|eng)\s*[\]\)]']
+    loose:     ['\bing\b', '\beng\b', '\ben$']
+
+  - code: jp
+    name: "Japonés"
+    strict:    ['\b(japones|japonesa|japanese)\b']
+    delimited: ['[\[\(]\s*(jp|jap|jpn)\s*[\]\)]']
+    loose:     ['\bjap\b', '\bjpn\b', '\bjp$']
+
+  - code: ko
+    name: "Coreano"
+    strict:    ['\b(coreano|coreana|korean)\b']
+    delimited: ['[\[\(]\s*(ko|kor)\s*[\]\)]']
+    loose:     ['\bkor\b', '\bko$']
+
+  - code: zh
+    name: "Chino"
+    strict:    ['\b(chino|china|chinese)\b']
+    delimited: ['[\[\(]\s*(zh|chi)\s*[\]\)]']
+    loose:     ['\bchi\b', '\bzh$']
+
+  - code: fr
+    name: "Francés"
+    strict:    ['\b(frances|francesa|french)\b']
+    delimited: ['[\[\(]\s*(fr|fra)\s*[\]\)]']
+    loose:     ['\bfra\b', '\bfr$']
+
+  - code: de
+    name: "Alemán"
+    strict:    ['\b(aleman|alemana|german|deutsch)\b']
+    delimited: ['[\[\(]\s*(de|ale|ger)\s*[\]\)]']
+    loose:     ['\bale\b', '\bger\b', '\bde$']
+
+  - code: it
+    name: "Italiano"
+    strict:    ['\b(italiano|italiana|italian)\b']
+    delimited: ['[\[\(]\s*(it|ita)\s*[\]\)]']
+    loose:     ['\bita\b', '\bit$']
+
+  - code: pt
+    name: "Portugués"
+    strict:    ['\b(portugues|portuguesa|portuguese|brasil)\b']
+    delimited: ['[\[\(]\s*(pt|por)\s*[\]\)]']
+    loose:     ['\bpor\b', '\bpt$']
+
+# Tokens de idioma que se retiran del texto comparado cuando el idioma ya se
+# detectó: la información viaja como atributo y con su propio peso, así que
+# repetirla en el nombre solo penalizaría escribir "Inglés" frente a "INGLES".
+language_tokens:
+  - "espanol"
+  - "espanola"
+  - "castellano"
+  - "spanish"
+  - "esp"
+  - "spa"
+  - "ingles"
+  - "inglesa"
+  - "english"
+  - "ing"
+  - "eng"
+  - "japones"
+  - "japonesa"
+  - "japanese"
+  - "jap"
+  - "jpn"
+  - "coreano"
+  - "coreana"
+  - "korean"
+  - "kor"
+  - "chino"
+  - "china"
+  - "chinese"
+  - "frances"
+  - "francesa"
+  - "french"
+  - "aleman"
+  - "alemana"
+  - "german"
+  - "italiano"
+  - "italiana"
+  - "italian"
+  - "portugues"
+  - "portuguesa"
+  - "portuguese"

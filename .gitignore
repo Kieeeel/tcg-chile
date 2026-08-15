@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+data/
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+Thumbs.db
+
+# Documentación interna: instrucciones de despliegue, cómo añadir tiendas,
+# funcionamiento del emparejado. Se queda en local, fuera del repo público.
+DOCS.md

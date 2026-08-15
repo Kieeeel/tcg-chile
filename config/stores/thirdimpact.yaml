@@ -1,0 +1,68 @@
+# =====================================================================
+# Third Impact (https://www.thirdimpact.cl) — Bsale.
+#
+# Plataforma nueva en este proyecto. Se reconoce por:
+#   <meta name="generator" content="Bsale">
+#   y por las clases con prefijo `bs-` (bs-collection__product, bs-product__…)
+#
+# Bsale no expone API pública de catálogo, así que se raspa el HTML. Cada
+# ficha publica schema.org/Product en JSON-LD con SKU, precio y
+# disponibilidad, que es de donde salen los datos limpios.
+#
+# El listado acepta `limit` en la URL: con `?limit=100` el catálogo (~220
+# productos) cabe en 3 páginas en vez de 19. El parámetro va en la URL de la
+# categoría porque la paginación añade `&page=N` detrás.
+#
+# La imagen NO se saca por selector: el primer <img> de la ficha es el logo
+# de la tienda. La buena viene en el JSON-LD.
+#
+# EL IDIOMA Y LAS VARIANTES
+# -------------------------
+# El <h1> NO dice el idioma (solo en 2 de cada 60 fichas). El nombre del
+# JSON-LD sí lo dice en 56 de cada 60. Por eso aquí no se declara
+# `selectors.name`: interesa el nombre del JSON-LD, no el titular.
+#
+# Y muchas fichas son dos productos, no uno:
+#
+#   Pokémon: Stellar Crown Booster Pack   <- un solo <h1>, una sola URL
+#       ESPAÑOL  $5.500  disponible
+#       INGLES   $6.500  agotado
+#
+# El selector de variante lo resuelve el navegador, así que leyendo el HTML
+# plano se veía solo el español y sin marcar como tal. Con
+# `expand_json_ld_variants` se publica una oferta por variante, cada una con
+# su precio, su stock y su idioma; la URL lleva `#<sku>` para que cada oferta
+# tenga identidad propia (Bsale no ofrece una URL por variante).
+# =====================================================================
+
+code: thirdimpact
+name: "Third Impact"
+base_url: "https://www.thirdimpact.cl"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Pokémon TCG"
+    url: "/collection/pokemon-trading-card-game?limit=100"
+    game: pokemon
+
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 6
+
+listing:
+  item: "div.bs-collection__product"
+  link: "a.bs-collection__product-info"
+
+use_json_ld: true
+expand_json_ld_variants: true
+
+selectors:
+  # Sin `name`: se usa el del JSON-LD, que es el que trae el idioma.
+  price: [".bs-product__final-price"]
+  description: ".bs-product__description"

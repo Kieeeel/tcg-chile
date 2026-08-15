@@ -1,0 +1,58 @@
+# =====================================================================
+# Winterland (https://www.winterland.cl) — Bsale.
+#
+# Tercera tienda Bsale del proyecto, pero con un tema distinto: aquí el
+# enlace del listado cuelga de `a.bs-collection__product__img`, no de
+# `a.bs-collection__product-info` como en Third Impact. El contenedor sí es
+# el mismo `div.bs-collection__product`.
+#
+# Se recorren dos colecciones:
+#   30th-celebracion-aniversario-pokemon (9)  — la que pediste
+#   pokemon (1)                               — el resto del Pokémon de la
+#                                               tienda, que es un producto
+#
+# El grueso del catálogo de Winterland son juegos de mesa y accesorios; lo de
+# Pokémon es exactamente esto.
+#
+# Como en las otras Bsale, el idioma va en el nombre del JSON-LD y una misma
+# ficha esconde las dos versiones:
+#
+#   30th Celebration - Booster Bundle
+#       Inglés   $43.000  agotado
+#       Español  $49.000  disponible
+# =====================================================================
+
+code: winterland
+name: "Winterland"
+base_url: "https://www.winterland.cl"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "30th Celebration Pokémon"
+    url: "/collection/30th-celebracion-aniversario-pokemon?limit=100"
+    game: pokemon
+  - name: "Pokémon"
+    url: "/collection/pokemon?limit=100"
+    game: pokemon
+
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 3
+
+listing:
+  item: "div.bs-collection__product"
+  link: "a.bs-collection__product__img"
+
+use_json_ld: true
+expand_json_ld_variants: true
+
+selectors:
+  # Sin `name`: se usa el del JSON-LD, que es el que trae el idioma.
+  price: [".bs-product__final-price"]
+  description: ".bs-product__description"

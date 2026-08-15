@@ -1,0 +1,46 @@
+# =====================================================================
+# TCG Family (https://www.tcgfamily.cl) — Jumpseller.
+#
+# Misma plataforma que The Way pero con un tema más antiguo: el enlace y el
+# nombre cuelgan de `h4 a` en vez de `a.product-image`. Por eso cada tienda
+# tiene su propio YAML aunque compartan plataforma.
+#
+# Catálogo: ~54 productos en 2 páginas.
+# =====================================================================
+
+code: tcgfamily
+name: "TCG Family"
+base_url: "https://www.tcgfamily.cl"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Pokémon"
+    url: "/pokemon"
+    game: pokemon
+
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 10
+
+listing:
+  item: "div.product-block"
+  link: "h4 a"
+
+use_json_ld: true
+
+selectors:
+  name: "h1"
+  # `.price-mob` NO sirve en la ficha: ahí muestra el precio de un producto
+  # relacionado. El precio bueno está en `.product-form-price` y en el JSON-LD.
+  price: [".product-form-price"]
+  image: ".product-image img"
+  description: "#product-description"
+
+attributes:
+  image_attr: src

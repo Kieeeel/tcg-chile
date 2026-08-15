@@ -1,0 +1,58 @@
+# =====================================================================
+# Wargaming (https://www.wargaming.cl) — Bsale, pero INACTIVA.
+#
+# Por qué está desactivada
+# ------------------------
+# El sitio responde HTTP 403 con el interstitial "Just a moment…" de
+# Cloudflare a cualquier cliente que no sea un navegador real, y lo hace en
+# todas las páginas: portada, categoría e incluso /sitemap.xml. Lo único que
+# se sirve es /robots.txt.
+#
+#   $ curl -A "Mozilla/5.0 …" https://www.wargaming.cl/collection/pokemon
+#   403  <title>Just a moment...</title>
+#
+# Eso no es un problema de cabeceras ni de plataforma: es una comprobación
+# antibot deliberada. Saltarla es justamente lo que la tienda está pidiendo
+# que no se haga, así que el scraper no lo intenta.
+#
+# Su robots.txt sí permite el rastreo general (User-agent: * → Allow: /); los
+# `Disallow: /` que trae van dirigidos a rastreadores concretos de IA. O sea
+# que la puerta cerrada es la de Cloudflare, no la de las reglas del sitio.
+#
+# Qué haría falta para activarla
+# ------------------------------
+# Que la tienda rebaje esa protección o autorice el acceso. Si eso ocurre,
+# la receta ya está escrita: es Bsale, igual que Third Impact y Game of
+# Magic, así que basta con poner `enabled: true`.
+# =====================================================================
+
+code: wargaming
+name: "Wargaming"
+base_url: "https://www.wargaming.cl"
+adapter: html
+enabled: false
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Pokémon"
+    url: "/collection/pokemon?limit=100"
+    game: pokemon
+
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 6
+
+listing:
+  item: "div.bs-collection__product"
+  link: "a.bs-collection__product-info"
+
+use_json_ld: true
+expand_json_ld_variants: true
+
+selectors:
+  price: [".bs-product__final-price"]
+  description: ".bs-product__description"

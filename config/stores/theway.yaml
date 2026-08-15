@@ -1,0 +1,46 @@
+# =====================================================================
+# The Way (https://www.theway.cl) — Jumpseller.
+#
+# Jumpseller no expone una API pública de catálogo, así que se raspa el HTML
+# con selectores CSS. La buena noticia es que sus fichas publican
+# schema.org/Product en JSON-LD, de donde salen el precio y la
+# disponibilidad ya limpios: los selectores solo hacen de respaldo.
+#
+# Catálogo: ~48 productos en 2 páginas.
+# =====================================================================
+
+code: theway
+name: "The Way"
+base_url: "https://www.theway.cl"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Pokémon TCG"
+    url: "/pokemon-tcg"
+    game: pokemon
+
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 10
+
+listing:
+  item: "div.product-block"
+  link: "a.product-image"
+
+# Aquí está el valor: precio, moneda y disponibilidad salen del JSON-LD.
+use_json_ld: true
+
+selectors:
+  name: "h1"
+  price: [".product-form-price", ".list-price .sale-color"]
+  image: ".main-product-image img"
+  description: "#product-description"
+
+attributes:
+  image_attr: src

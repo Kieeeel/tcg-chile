@@ -1,0 +1,36 @@
+game: magic
+game_name: "Magic: The Gathering"
+
+sets:
+  - code: mkm
+    name: "Murders at Karlov Manor"
+    aliases: ["murders at karlov manor", "karlov manor"]
+    released: "2024-02-09"
+  - code: otj
+    name: "Outlaws of Thunder Junction"
+    aliases: ["outlaws of thunder junction", "thunder junction"]
+    released: "2024-04-19"
+  - code: blb
+    name: "Bloomburrow"
+    aliases: ["bloomburrow"]
+    released: "2024-08-02"
+  - code: dsk
+    name: "Duskmourn: House of Horror"
+    aliases: ["duskmourn house of horror", "duskmourn"]
+    released: "2024-09-27"
+  - code: fdn
+    name: "Foundations"
+    aliases: ["foundations"]
+    released: "2024-11-15"
+  - code: dft
+    name: "Aetherdrift"
+    aliases: ["aetherdrift"]
+    released: "2025-02-14"
+  - code: tdm
+    name: "Tarkir: Dragonstorm"
+    aliases: ["tarkir dragonstorm", "dragonstorm"]
+    released: "2025-04-11"
+  - code: fin
+    name: "Final Fantasy"
+    aliases: ["final fantasy"]
+    released: "2025-06-13"

@@ -1,0 +1,162 @@
+# =====================================================================
+# Configuración general de TCG Comparative
+# Todo es editable desde aquí o desde la pantalla "Configuración".
+# =====================================================================
+
+app:
+  host: "127.0.0.1"
+  port: 8000
+  currency: "CLP"
+  # Formato de moneda: separador de miles y decimales usados en la interfaz.
+  currency_thousands_sep: "."
+  currency_decimal_sep: ","
+  currency_decimals: 0
+  currency_symbol: "$"
+  timezone: "America/Santiago"
+
+scheduler:
+  enabled: true
+  # Valores admitidos: 1, 2, 3, 4, 6, 12, 24 (horas).
+  interval_hours: 4
+  # Ejecutar una actualización apenas arranca la aplicación.
+  run_on_startup: false
+  # Si al arrancar ya pasó el intervalo desde la última actualización real,
+  # recuperarla en cuanto la aplicación esté lista (en vez de esperar otro turno
+  # completo). La cuenta se ancla a la base de datos, no al arranque del proceso.
+  catch_up: true
+  # Margen tras el arranque antes de lanzar esa recuperación.
+  catch_up_delay_seconds: 60
+  # Desfase aleatorio (segundos) para no golpear todas las tiendas al mismo tiempo.
+  jitter_seconds: 120
+
+# ---------------------------------------------------------------------------
+# Publicación en Telegram
+#
+# La ÚNICA salida del proyecto hacia un servicio que no sea una tienda. Va
+# apagada de fábrica y en modo simulación: con `dry_run: true` el mensaje se
+# escribe en el registro en vez de enviarse, para revisar el formato antes de
+# conectarlo a un grupo de verdad.
+#
+# El token NO se pone aquí. Va en la variable de entorno TELEGRAM_BOT_TOKEN,
+# para que subir el repositorio no filtre una credencial:
+#
+#   Windows   setx TELEGRAM_BOT_TOKEN "123456:ABC-DEF..."
+#   Linux     export TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
+# ---------------------------------------------------------------------------
+telegram:
+  enabled: false
+  dry_run: true
+  # Grupo o canal: «@mi_canal», o el id numérico si el grupo es privado.
+  chat_id: ""
+  header: "🔥 <b>Ofertas TCG Chile</b>"
+  # Qué se anuncia: price_drop | back_in_stock | new_product
+  publish: [price_drop, back_in_stock]
+  # Filtros para que el grupo no se llene de ruido. Una bajada de $200 en un
+  # producto de $80.000 no es noticia.
+  min_drop_pct: 8
+  min_drop_amount: 2000
+  # Tope por actualización, y cuántas horas atrás se mira.
+  max_per_run: 8
+  max_age_hours: 48
+  hide_preview: true
+
+scraping:
+  # Peticiones simultáneas dentro de una misma tienda.
+  concurrency_per_store: 4
+  # Tiendas procesadas en paralelo.
+  global_concurrency: 3
+  request_timeout_seconds: 25
+  # Espera mínima entre dos peticiones a la misma tienda (rate limiting).
+  min_delay_seconds: 0.8
+  max_retries: 3
+  backoff_factor: 1.8
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+  # Usa ETag / Last-Modified para no volver a descargar páginas sin cambios.
+  conditional_requests: true
+  # Tope de seguridad por tienda y por ejecución.
+  max_products_per_store: 5000
+  max_pages_per_category: 50
+  # Si una tienda falla más veces seguidas que esto, se marca como "degradada".
+  error_threshold: 25
+
+matching:
+  # Umbrales de decisión (modificables).
+  auto_threshold: 90      # >= 90  -> agrupación automática
+  review_threshold: 75    # 75..89 -> queda pendiente de revisión manual
+  # < 75 -> no es match
+
+  weights:
+    identifier: 100       # UPC / EAN / GTIN idéntico
+    manufacturer_sku: 60  # SKU de fabricante idéntico
+    same_set: 20
+    same_product_type: 25
+    same_quantity: 15
+    token_overlap: 20     # Jaccard sobre tokens relevantes (0..20)
+    name_similarity: 20   # mezcla de TF-IDF, Jaro-Winkler y token_set (0..20)
+    same_language: 5
+
+  penalties:
+    different_set: -100
+    different_product_type: -100
+    different_quantity: -30
+    different_language: -30
+    # Por cada token poco frecuente que aparece en un nombre y no en el otro.
+    # Es lo que distingue variantes del mismo set y tipo:
+    #   "Ascended Heroes Tin Mega Feraligatr ex"
+    #   "Ascended Heroes Tin Mega Emboar ex"
+    distinctive_token: -14
+    max_distinctive_total: -42
+
+  # Un token cuenta como "distintivo" si aparece en este porcentaje del
+  # catálogo o menos (0.02 = 2 %). Palabras como "ingles" o "pokemon" son
+  # demasiado frecuentes y nunca penalizan.
+  distinctive_token_ratio: 0.02
+
+  # Cuando un atributo se conoce en un producto y no en el otro no se penaliza,
+  # pero tampoco suma. Este factor da un crédito parcial (0..1).
+  unknown_attribute_credit: 0.35
+
+  # Si NINGUNO de los dos productos tiene expansión ni tipo identificado, el
+  # puntaje se apoya únicamente en el texto. En ese caso se limita a este tope
+  # para que nunca se agrupe en automático y pase por revisión manual.
+  unknown_attributes_cap: 88
+
+  # El idioma cuenta como identidad del producto: dos ofertas con idiomas
+  # conocidos y distintos se descartan de plano, igual que si tuvieran otra
+  # expansión u otro tipo. Así el par NO vuelve a la cola de revisión, porque
+  # la pregunta ya está respondida.
+  #
+  # Ponlo en false si prefieres que el idioma solo reste puntos
+  # (`penalties.different_language`) y que esos pares te lleguen a revisión.
+  language_is_identity: true
+
+  blocking:
+    # Máximo de candidatos comparados por producto (evita O(n^2)).
+    max_candidates_per_product: 80
+    # Tokens que aparecen en más del X% del catálogo no sirven para bloquear.
+    max_token_document_ratio: 0.25
+
+unit_price:
+  enabled: true
+  # Solo se calcula el precio por unidad si la cantidad se determinó con
+  # al menos esta confianza (0..1).
+  min_confidence: 0.7
+  # Unidad base para el cálculo comparativo.
+  base_unit: "booster"
+
+stock:
+  # Estados que cuentan como "disponible" para el mejor precio.
+  available_states: ["in_stock", "preorder"]
+  # Por defecto los agotados no pueden ser "mejor precio".
+  exclude_out_of_stock_from_best_price: true
+
+history:
+  # Solo se guarda un registro nuevo si el precio cambió, o si pasó este tiempo.
+  min_hours_between_snapshots: 24
+  # Días de historial mostrados por defecto en el gráfico.
+  default_chart_days: 90
+
+alerts:
+  enabled: true
+  # Reevaluar alertas después de cada actualización.
+  check_after_each_run: true

@@ -1,0 +1,30 @@
+# =====================================================================
+# Hunter Card TCG (https://www.huntercardtcg.com) — WooCommerce.
+#   Verificado: /wp-json/wc/store/v1/products devuelve JSON.
+#
+# OJO: esta tienda vende varios juegos (MTG, One Piece, Star Wars, Digimon,
+# Gundam...). Por eso NO se recorre el catálogo completo, sino solo la
+# categoría de sellado de Pokémon, que es la que corresponde a la URL
+# /categoria-pokemon-sellado/ y la que hace válido `default_game: pokemon`.
+#
+# Otras categorías de la misma tienda por si te interesan más adelante:
+#   cases-sellados (15) · bb-producto-sellado (11) · sellado-ascended-heroes (26)
+#   sellado-primer-bloque (34) · cartas-sueltas-pokemon (165, cartas sueltas)
+# =====================================================================
+
+code: huntercard
+name: "Hunter Card TCG"
+base_url: "https://www.huntercardtcg.com"
+adapter: woocommerce
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - slug: producto-sellado      # "Sellado Pokémon TCG" — 262 productos
+    name: "Sellado Pokémon TCG"
+    game: pokemon
+
+page_size: 100
+max_pages: 12

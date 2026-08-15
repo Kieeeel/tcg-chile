@@ -1,0 +1,41 @@
+# =====================================================================
+# Juegos soportados. Para añadir un TCG nuevo basta con:
+#   1. agregar una entrada aquí
+#   2. crear config/sets/<code>.yaml con sus expansiones
+#   3. configurar una tienda con `default_game: <code>`
+# No hay que tocar código.
+#
+# `color` es el que usa el banner de la portada para ese juego.
+# =====================================================================
+
+games:
+  - code: pokemon
+    name: "Pokémon"
+    tokens: ["pokemon"]
+    sets_file: "sets/pokemon.yaml"
+    color: "#e3350d"
+    default: true
+
+  - code: onepiece
+    name: "One Piece"
+    tokens: ["onepiece"]
+    sets_file: "sets/onepiece.yaml"
+    color: "#c8102e"
+
+  - code: magic
+    name: "Magic: The Gathering"
+    tokens: ["magic"]
+    sets_file: "sets/magic.yaml"
+    color: "#d4863b"
+
+  - code: yugioh
+    name: "Yu-Gi-Oh!"
+    tokens: ["yugioh"]
+    sets_file: "sets/yugioh.yaml"
+    color: "#7b3fa0"
+
+  - code: lorcana
+    name: "Disney Lorcana"
+    tokens: ["lorcana"]
+    sets_file: "sets/lorcana.yaml"
+    color: "#1f7a8c"

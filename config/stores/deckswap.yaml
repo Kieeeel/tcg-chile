@@ -1,0 +1,30 @@
+# =====================================================================
+# Deckswap (https://deckswap.cl) — WooCommerce.
+#   Verificado: /wp-json/wc/store/v1/products devuelve JSON.
+#
+# La tienda entera son 129 productos, pero incluye Lorcana, Riftbound,
+# accesorios (40) y protectores (29). La categoría `pokemon-tcg` son 79 y es
+# la que corresponde a la URL /pokemon-tcg/.
+#
+# Comprobado que `pokemon-tcg` es superconjunto de las subcategorías por set:
+# chaos-rising (13), tins-pokemon-tcg (12), perfect-order (11),
+# 30th-celebration (11) y pitch-black (8) están todas dentro. Añadirlas
+# aparte solo duplicaría peticiones.
+# =====================================================================
+
+code: deckswap
+name: "Deckswap"
+base_url: "https://deckswap.cl"
+adapter: woocommerce
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - slug: pokemon-tcg
+    name: "Pokémon TCG"
+    game: pokemon
+
+page_size: 100
+max_pages: 10

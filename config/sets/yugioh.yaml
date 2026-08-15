@@ -1,0 +1,24 @@
+game: yugioh
+game_name: "Yu-Gi-Oh!"
+
+sets:
+  - code: age
+    name: "Age of Overlord"
+    aliases: ["age of overlord"]
+    released: "2023-10-13"
+  - code: phni
+    name: "Phantom Nightmare"
+    aliases: ["phantom nightmare"]
+    released: "2024-02-09"
+  - code: legendary_duelists
+    name: "Legendary Duelists"
+    aliases: ["legendary duelists"]
+    released: "2024-04-19"
+  - code: rira
+    name: "Rage of the Abyss"
+    aliases: ["rage of the abyss"]
+    released: "2024-10-11"
+  - code: alin
+    name: "Alliance Insight"
+    aliases: ["alliance insight"]
+    released: "2025-02-07"

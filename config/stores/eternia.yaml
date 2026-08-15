@@ -1,0 +1,27 @@
+# =====================================================================
+# Tienda Eternia (https://tiendaeternia.com) — Shopify.
+#   Verificado: /collections/pokemon-tcg/products.json devuelve JSON.
+#
+# Catálogo pequeño: `pokemon-tcg` es la única colección de Pokémon de la
+# tienda (comprobado en /collections.json) y son 11 productos con 14
+# variantes. Aun así entra en la comparación: una tienda con pocos productos
+# puede tener el mejor precio en alguno de ellos, que es justo lo que
+# interesa.
+# =====================================================================
+
+code: eternia
+name: "Tienda Eternia"
+base_url: "https://tiendaeternia.com"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon-tcg
+    name: "Pokémon TCG"
+    game: pokemon
+
+page_size: 250
+max_pages: 5

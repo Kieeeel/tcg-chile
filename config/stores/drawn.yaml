@@ -1,0 +1,21 @@
+# =====================================================================
+# Drawn (https://drawn.cl) — Shopify.
+#   Verificado: /collections/sellado-pokemon/products.json devuelve JSON.
+# =====================================================================
+
+code: drawn
+name: "Drawn"
+base_url: "https://drawn.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: sellado-pokemon
+    name: "Pokémon sellado"
+    game: pokemon
+
+page_size: 250
+max_pages: 10

@@ -1,0 +1,33 @@
+# =====================================================================
+# Tiendas Level UP (https://www.tiendaslevelup.cl) — WooCommerce.
+#   Verificado: /wp-json/wc/store/v1/products devuelve JSON.
+#
+# La URL que se ve en el navegador, /productos-sellados/, es una página
+# de Elementor, no un archivo de categoría. La categoría real detrás de
+# esos productos es el slug `productos-sellados` (366 productos), que es
+# el que entiende la Store API.
+#
+# OJO: esta tienda también vende videojuegos (Nintendo, PlayStation, Xbox)
+# y otros TCG; el catálogo completo son ~1.400 productos. Por eso NO se
+# recorre entero: solo la categoría de sellado, que es 100 % Pokémon y la
+# que hace válido `default_game: pokemon`.
+# =====================================================================
+
+code: levelup
+name: "Tiendas Level UP"
+base_url: "https://www.tiendaslevelup.cl"
+adapter: woocommerce
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - slug: productos-sellados
+    name: "Productos Sellados"
+    game: pokemon
+
+# El endpoint de categorías de esta tienda devuelve 500 con per_page=100,
+# pero el de productos aguanta 100 sin problema.
+page_size: 100
+max_pages: 12

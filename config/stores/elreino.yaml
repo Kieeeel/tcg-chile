@@ -1,0 +1,42 @@
+# =====================================================================
+# El Reino de los Duelos (https://elreinodelosduelos.cl) — WooCommerce.
+#   Verificado: /wp-json/wc/store/v1/products devuelve JSON.
+#
+# Tienda grande y multi-juego: 724 productos entre Magic, One Piece, Mitos y
+# Leyendas y accesorios. Solo se recorren las categorías que son Pokémon.
+#
+# LA SEGUNDA CATEGORÍA TIENE EL SLUG EQUIVOCADO
+# ---------------------------------------------
+# La tienda tiene una categoría llamada "Productos de Colección Pokémon TCG"
+# cuyo slug es `one-piece-card-game-productos-antiguos-sellados` — se ve que
+# la crearon duplicando la de One Piece y le cambiaron solo el nombre. El
+# contenido sí es Pokémon (First Partner Packs, binder 25th, V-UNION Special
+# Collection…), son 28 productos y ninguno está en `pokemon-tcg`, así que se
+# recorre también. Hay que fiarse del nombre, no del slug.
+#
+# NO se incluyen, a propósito:
+#   productos-antiguos-sellados (32) — mezcla Pokémon con Mitos y Leyendas
+#   preventas (49)                   — 23 son Pokémon, el resto otros juegos
+# Ambas meterían productos de otros juegos en una tienda declarada como
+# `default_game: pokemon`.
+# =====================================================================
+
+code: elreino
+name: "El Reino de los Duelos"
+base_url: "https://elreinodelosduelos.cl"
+adapter: woocommerce
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - slug: pokemon-tcg
+    name: "Pokémon TCG"
+    game: pokemon
+  - slug: one-piece-card-game-productos-antiguos-sellados
+    name: "Productos de Colección Pokémon TCG"
+    game: pokemon
+
+page_size: 100
+max_pages: 10

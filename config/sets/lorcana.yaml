@@ -1,0 +1,32 @@
+game: lorcana
+game_name: "Disney Lorcana"
+
+sets:
+  - code: lor01
+    name: "The First Chapter"
+    aliases: ["the first chapter", "first chapter"]
+    released: "2023-08-18"
+  - code: lor02
+    name: "Rise of the Floodborn"
+    aliases: ["rise of the floodborn", "floodborn"]
+    released: "2023-11-17"
+  - code: lor03
+    name: "Into the Inklands"
+    aliases: ["into the inklands", "inklands"]
+    released: "2024-02-23"
+  - code: lor04
+    name: "Ursula's Return"
+    aliases: ["ursulas return", "ursula return"]
+    released: "2024-05-31"
+  - code: lor05
+    name: "Shimmering Skies"
+    aliases: ["shimmering skies"]
+    released: "2024-08-09"
+  - code: lor06
+    name: "Azurite Sea"
+    aliases: ["azurite sea"]
+    released: "2024-11-15"
+  - code: lor07
+    name: "Archazia's Island"
+    aliases: ["archazias island", "archazia island"]
+    released: "2025-03-07"

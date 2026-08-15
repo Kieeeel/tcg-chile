@@ -1,0 +1,211 @@
+# =====================================================================
+# Catálogo de expansiones de Pokémon TCG.
+#
+# `aliases` se comparan sobre el nombre ya normalizado (minúsculas, sin
+# acentos, sin puntuación). Gana siempre el alias más largo que coincida,
+# por lo que "paradox rift" se detecta antes que "rift".
+#
+# `strict` = true significa que el alias solo cuenta si aparece completo
+# como palabra (útil para números como "151").
+# =====================================================================
+
+game: pokemon
+game_name: "Pokémon"
+
+sets:
+  # --- Scarlet & Violet -------------------------------------------------
+  # "Scarlet & Violet" es el nombre de la SERIE completa, no solo de esta
+  # expansión: aparece en el nombre de casi todos los productos SV. Por eso
+  # `use_name_alias: false` impide que el nombre de la expansión se use como
+  # alias y solo se detecta con los alias explícitos de abajo.
+  - code: sv01
+    name: "Scarlet & Violet"
+    use_name_alias: false
+    aliases: ["scarlet and violet base set", "scarlet violet base set", "sv base set"]
+    released: "2023-03-31"
+
+  - code: sv02
+    name: "Paldea Evolved"
+    aliases: ["paldea evolved", "evolucionados en paldea"]
+    released: "2023-06-09"
+
+  - code: sv03
+    name: "Obsidian Flames"
+    aliases: ["obsidian flames", "llamas obsidianas"]
+    released: "2023-08-11"
+
+  - code: sv035
+    name: "151"
+    aliases: ["151"]
+    strict: true
+    released: "2023-09-22"
+
+  - code: sv04
+    name: "Paradox Rift"
+    aliases: ["paradox rift", "fisura paradojica"]
+    released: "2023-11-03"
+
+  - code: sv045
+    name: "Paldean Fates"
+    aliases: ["paldean fates", "destinos de paldea"]
+    released: "2024-01-26"
+
+  - code: sv05
+    name: "Temporal Forces"
+    aliases: ["temporal forces", "fuerzas temporales"]
+    released: "2024-03-22"
+
+  - code: sv06
+    name: "Twilight Masquerade"
+    aliases: ["twilight masquerade", "mascarada crepuscular"]
+    released: "2024-05-24"
+
+  - code: sv065
+    name: "Shrouded Fable"
+    aliases: ["shrouded fable", "fabula sombria"]
+    released: "2024-08-02"
+
+  - code: sv07
+    name: "Stellar Crown"
+    aliases: ["stellar crown", "corona estelar", "corona astral"]
+    released: "2024-09-13"
+
+  - code: sv08
+    name: "Surging Sparks"
+    aliases: ["surging sparks", "chispas centelleantes"]
+    released: "2024-11-08"
+
+  - code: sv085
+    name: "Prismatic Evolutions"
+    aliases: ["prismatic evolutions", "evoluciones prismaticas", "prismatic"]
+    released: "2025-01-17"
+
+  - code: sv09
+    name: "Journey Together"
+    aliases: ["journey together", "viaje juntos"]
+    released: "2025-03-28"
+
+  - code: sv10
+    name: "Destined Rivals"
+    aliases: ["destined rivals", "rivales predestinados"]
+    released: "2025-05-30"
+
+  - code: sv11w
+    name: "White Flare"
+    aliases: ["white flare", "destello blanco"]
+    released: "2025-07-18"
+
+  - code: sv11b
+    name: "Black Bolt"
+    aliases: ["black bolt", "rayo negro"]
+    released: "2025-07-18"
+
+  # "Mega Evolution" es a la vez una expansión y el nombre de toda la serie
+  # de 2026 (Phantasmal Flames, Pitch Black, Perfect Order...). Los productos
+  # se llaman "Mega Evolution - Pitch Black: Booster Box", así que coinciden
+  # los dos nombres. `series_level: true` hace que solo gane cuando no haya
+  # ninguna expansión concreta en el nombre.
+  - code: sv12
+    name: "Mega Evolution"
+    series_level: true
+    aliases: ["mega evolution", "megaevolution", "megaevolucion", "mega evolucion"]
+    released: "2025-09-26"
+
+  # --- Mega Evolution (2026) -------------------------------------------
+  - code: me02
+    name: "Phantasmal Flames"
+    aliases: ["phantasmal flames", "llamas fantasmales"]
+    released: "2025-11-14"
+
+  - code: me03
+    name: "Pitch Black"
+    aliases: ["pitch black", "negro absoluto"]
+    released: "2026-01-30"
+
+  - code: me04
+    name: "Ascended Heroes"
+    aliases: ["ascended heroes", "heroes ascendidos"]
+    released: "2026-03-27"
+
+  - code: me05
+    name: "Perfect Order"
+    aliases: ["perfect order", "orden perfecto"]
+    released: "2026-05-22"
+
+  - code: me06
+    name: "Chaos Rising"
+    aliases: ["chaos rising", "caos creciente"]
+    released: "2026-07-17"
+
+  - code: me07
+    name: "Slashing Legends"
+    aliases: ["slashing legends", "leyendas cortantes"]
+    released: "2026-09-18"
+
+  - code: me08
+    name: "Mega Forces"
+    aliases: ["mega forces", "mega fuerzas"]
+    released: "2026-08-28"
+
+  - code: cel30
+    name: "30th Anniversary Celebration"
+    aliases: ["30th celebration", "30th anniversary celebration",
+              "celebracion 30 aniversario"]
+    released: "2026-10-02"
+
+  # --- Sword & Shield ---------------------------------------------------
+  - code: swsh12pt5
+    name: "Crown Zenith"
+    aliases: ["crown zenith", "zenit supremo"]
+    released: "2023-01-20"
+
+  - code: swsh12
+    name: "Silver Tempest"
+    aliases: ["silver tempest", "tempestad plateada"]
+    released: "2022-11-11"
+
+  - code: swsh11
+    name: "Lost Origin"
+    aliases: ["lost origin", "origen perdido"]
+    released: "2022-09-09"
+
+  - code: swsh10
+    name: "Astral Radiance"
+    aliases: ["astral radiance", "esplendor astral"]
+    released: "2022-05-27"
+
+  - code: swsh09
+    name: "Brilliant Stars"
+    aliases: ["brilliant stars", "estrellas brillantes"]
+    released: "2022-02-25"
+
+  - code: swsh08
+    name: "Fusion Strike"
+    aliases: ["fusion strike", "golpe fusion"]
+    released: "2021-11-12"
+
+  - code: swsh07
+    name: "Evolving Skies"
+    aliases: ["evolving skies", "cielos evolutivos"]
+    released: "2021-08-27"
+
+  - code: cel25
+    name: "Celebrations"
+    aliases: ["celebrations", "celebraciones"]
+    released: "2021-10-08"
+
+  # --- Colecciones especiales sin expansión numerada --------------------
+  - code: pokemon_go
+    name: "Pokémon GO"
+    aliases: ["pokemon go"]
+    released: "2022-07-01"
+
+  - code: hidden_fates
+    name: "Hidden Fates"
+    aliases: ["hidden fates", "destinos ocultos"]
+    released: "2019-08-23"
+
+  - code: shining_fates
+    name: "Shining Fates"
+    aliases: ["shining fates", "destinos brillantes"]
+    released: "2021-02-19"

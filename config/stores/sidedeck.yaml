@@ -1,0 +1,34 @@
+# =====================================================================
+# Side Deck (https://sidedeck.cl) — tienda Shopify.
+#
+# Cómo supe que era Shopify:
+#   https://sidedeck.cl/collections/pokemon/products.json  devuelve JSON
+#
+# Con eso basta: el adaptador `shopify` ya sabe leer título, precio,
+# variantes, stock, SKU, código de barras e imágenes. No hay selectores
+# CSS que mantener y si la tienda cambia de diseño esto sigue funcionando.
+# =====================================================================
+
+code: sidedeck
+name: "Side Deck"
+base_url: "https://sidedeck.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+# Cada colección es una "categoría" a recorrer. El handle es el trozo final
+# de la URL:  https://sidedeck.cl/collections/pokemon  ->  handle: pokemon
+collections:
+  - handle: pokemon
+    name: "Pokémon"
+    game: pokemon
+
+# Shopify permite 250 productos por página. La colección tiene ~389, así que
+# con 2 páginas sobra; dejamos margen por si crece.
+page_size: 250
+max_pages: 10
+
+# Esta tienda no publica códigos de barra (barcode viene vacío), así que la
+# agrupación se apoyará en set + tipo de producto + similitud de nombre.

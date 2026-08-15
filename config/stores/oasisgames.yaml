@@ -1,0 +1,21 @@
+# =====================================================================
+# Oasis Games (https://www.oasisgames.cl) — Shopify.
+#   Verificado: /collections/pokemon-sealed/products.json devuelve JSON.
+# =====================================================================
+
+code: oasisgames
+name: "Oasis Games"
+base_url: "https://www.oasisgames.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon-sealed
+    name: "Pokémon sellado"
+    game: pokemon
+
+page_size: 250
+max_pages: 10

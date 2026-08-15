@@ -1,0 +1,33 @@
+# =====================================================================
+# Blood Moon Games (https://www.bloodmoongames.cl) — WooCommerce.
+#   Verificado: /wp-json/wc/store/v1/products devuelve JSON.
+#
+# Igual que en Level UP, la URL del navegador (/pokemon-tcg/) es una página
+# de Elementor, no un archivo de categoría. La categoría real resultó ser
+# el slug `pokemon-tcg` (125 productos, 100 % Pokémon).
+#
+# La tienda vende además Magic (188), One Piece (93), juegos de tablero
+# (102) y accesorios (229), así que restringir la categoría no es opcional:
+# es lo que hace válido `default_game: pokemon`.
+#
+# Peculiaridad de sus nombres: el idioma va entre corchetes y en medio del
+# título — "Pokemon TCG [EN] Chaos Rising - Sleeved Booster". Lo cubren las
+# reglas `delimited` de config/normalization.yaml.
+# =====================================================================
+
+code: bloodmoon
+name: "Blood Moon Games"
+base_url: "https://www.bloodmoongames.cl"
+adapter: woocommerce
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - slug: pokemon-tcg
+    name: "Pokémon TCG"
+    game: pokemon
+
+page_size: 100
+max_pages: 10

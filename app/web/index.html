@@ -1,0 +1,201 @@
+<!doctype html>
+<!-- El oscuro es el tema estándar: viene puesto ya en el HTML para que no
+     haya un fogonazo blanco antes de que arranque el JavaScript. -->
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <script>
+    // Lo primero de todo, antes de pintar nada: si el usuario eligió el
+    // tema claro en otra visita, se aplica ya. Si no ha elegido, se queda
+    // el oscuro que trae el <html>.
+    try {
+      var temaGuardado = localStorage.getItem('theme');
+      if (temaGuardado) document.documentElement.dataset.theme = temaGuardado;
+    } catch (e) { /* navegación privada: se queda el oscuro */ }
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>TCG Chile — Comparador de precios</title>
+  <!-- Dos cartas blancas sobre el azul de la bandera. -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%230039a6'/><rect x='4.4' y='5.4' width='9.4' height='13.4' rx='1.6' transform='rotate(-16 9.1 12.1)' fill='%23fff' opacity='.55'/><rect x='10.2' y='4.8' width='9.8' height='14.4' rx='1.8' fill='%23fff'/></svg>">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <!-- Iconos reutilizables: se referencian con <use href="#i-xxx"> -->
+  <svg class="icon-defs" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V20h14V9.5"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1L12 21l8.8-8.3a5 5 0 0 0 0-7.1z"/></symbol>
+    <symbol id="i-review" viewBox="0 0 24 24"><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/><path d="M8.5 11.5l3 3L22 4"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9.5V20h16V9.5"/><path d="M3 9.5h18l-1.6-5.2a1 1 0 0 0-1-.8H5.6a1 1 0 0 0-1 .8z"/><path d="M9.5 20v-5.5h5V20"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8.5a6 6 0 1 0-12 0c0 6.5-2.5 8.5-2.5 8.5h17S18 15 18 8.5"/><path d="M13.7 20.5a2 2 0 0 1-3.4 0"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-6M4 11V3M12 21v-9M12 8V3M20 21v-4M20 13V3"/><path d="M1.5 15h5M9.5 8h5M17.5 17h5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6"/><path d="M12 2v2.6M12 19.4V22M22 12h-2.6M4.6 12H2M19.07 4.93l-1.84 1.84M6.77 17.23l-1.84 1.84M19.07 19.07l-1.84-1.84M6.77 6.77L4.93 4.93"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.3A8.8 8.8 0 0 1 9.7 3.5a8.8 8.8 0 1 0 10.8 10.8z"/></symbol>
+
+    <!--
+      Banderas de idioma dibujadas, no emoji.
+
+      Windows no incluye los glifos de bandera: Segoe UI Emoji no trae
+      ninguna, así que 🇪🇸 y 🇬🇧 se veían como las letras sueltas "ES" y "GB",
+      o como un recuadro vacío. Dibujadas se ven igual en cualquier equipo.
+    -->
+    <symbol id="f-es" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#c60b1e"/>
+      <rect y="10" width="60" height="20" fill="#ffc400"/>
+    </symbol>
+    <symbol id="f-en" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#012169"/>
+      <path d="M0 0 60 40M60 0 0 40" fill="none" stroke="#fff" stroke-width="9"/>
+      <path d="M0 0 60 40M60 0 0 40" fill="none" stroke="#c8102e" stroke-width="4"/>
+      <path d="M30 0V40M0 20H60" fill="none" stroke="#fff" stroke-width="14"/>
+      <path d="M30 0V40M0 20H60" fill="none" stroke="#c8102e" stroke-width="8"/>
+    </symbol>
+    <symbol id="f-jp" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#fff"/>
+      <circle cx="30" cy="20" r="11" fill="#bc002d"/>
+    </symbol>
+    <symbol id="f-ko" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#fff"/>
+      <path d="M19 20a11 11 0 0 1 22 0a5.5 5.5 0 0 1-11 0a5.5 5.5 0 0 0-11 0z" fill="#cd2e3a"/>
+      <path d="M19 20a5.5 5.5 0 0 1 11 0a5.5 5.5 0 0 0 11 0a11 11 0 0 1-22 0z" fill="#0047a0"/>
+    </symbol>
+    <symbol id="f-zh" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#de2910"/>
+      <path d="M12 5l2.2 6.8H21l-5.5 4 2.1 6.7-5.6-4.2-5.6 4.2 2.1-6.7-5.5-4h6.8z" fill="#ffde00"/>
+      <circle cx="24" cy="6" r="1.6" fill="#ffde00"/>
+      <circle cx="29" cy="10" r="1.6" fill="#ffde00"/>
+      <circle cx="29" cy="16" r="1.6" fill="#ffde00"/>
+      <circle cx="24" cy="20" r="1.6" fill="#ffde00"/>
+    </symbol>
+    <symbol id="f-fr" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#fff"/>
+      <rect width="20" height="40" fill="#002395"/>
+      <rect x="40" width="20" height="40" fill="#ed2939"/>
+    </symbol>
+    <symbol id="f-de" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#000"/>
+      <rect y="13.33" width="60" height="13.34" fill="#dd0000"/>
+      <rect y="26.67" width="60" height="13.33" fill="#ffce00"/>
+    </symbol>
+    <symbol id="f-it" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#fff"/>
+      <rect width="20" height="40" fill="#009246"/>
+      <rect x="40" width="20" height="40" fill="#ce2b37"/>
+    </symbol>
+    <symbol id="f-pt" viewBox="0 0 60 40">
+      <rect width="60" height="40" fill="#da291c"/>
+      <rect width="24" height="40" fill="#046a38"/>
+      <circle cx="24" cy="20" r="7" fill="#ffe900" stroke="#046a38" stroke-width="1.5"/>
+    </symbol>
+  </svg>
+
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="#/inicio" aria-label="TCG Chile — inicio">
+        <!-- Dos cartas: una detrás y otra delante. Además de decir «TCG»,
+             dos cartas son dos precios puestos al lado, que es lo que hace
+             la aplicación. La silueta aguanta el tamaño de la pestaña. -->
+        <span class="brand__mark">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect class="brand__card-back" x="4.4" y="5.4" width="9.4" height="13.4" rx="1.6"
+                  transform="rotate(-16 9.1 12.1)"/>
+            <rect class="brand__card-front" x="10.2" y="4.8" width="9.8" height="14.4" rx="1.8"/>
+          </svg>
+        </span>
+        <span class="brand__name"><strong>TCG</strong> Chile</span>
+      </a>
+
+      <div class="search" role="search">
+        <svg class="search__icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="global-search" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Busca «151 booster bundle», «prismatic», «ETB»…">
+        <div id="suggestions" class="suggestions" hidden></div>
+      </div>
+
+      <!-- «Inicio» no está aquí: vive en la barra de juegos, a la izquierda
+           del primer TCG, que es donde empieza el recorrido. -->
+      <nav class="iconnav" id="tabs">
+        <a href="#/favoritos" data-route="favoritos" title="Favoritos" aria-label="Favoritos">
+          <svg><use href="#i-heart"/></svg></a>
+        <a href="#/alertas" data-route="alertas" title="Alertas" aria-label="Alertas">
+          <svg><use href="#i-bell"/></svg>
+          <span class="badge badge--alert" id="badge-alerts" hidden></span></a>
+        <!-- Tiendas, revisión y configuración viven juntas en #/admin -->
+        <a href="#/admin" data-route="admin" title="Administración" aria-label="Administración">
+          <svg><use href="#i-sliders"/></svg>
+          <span class="badge" id="badge-reviews" hidden></span></a>
+        <button id="btn-theme" class="switch" role="switch" aria-checked="true"
+                title="Cambiar entre tema oscuro y claro" aria-label="Tema oscuro">
+          <span class="switch__track">
+            <svg class="switch__ico switch__ico--moon"><use href="#i-moon"/></svg>
+            <svg class="switch__ico switch__ico--sun"><use href="#i-sun"/></svg>
+            <span class="switch__knob"></span>
+          </span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Selector de juego: lo rellena app.js con config/games.yaml -->
+    <nav class="games" id="games-nav"></nav>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <a class="brand" href="#/inicio" aria-label="TCG Chile — inicio">
+          <span class="brand__mark">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect class="brand__card-back" x="4.4" y="5.4" width="9.4" height="13.4" rx="1.6"
+                    transform="rotate(-16 9.1 12.1)"/>
+              <rect class="brand__card-front" x="10.2" y="4.8" width="9.8" height="14.4" rx="1.8"/>
+            </svg>
+          </span>
+          <span class="brand__name"><strong>TCG</strong> Chile</span>
+        </a>
+        <p class="footer__mission">
+          Compara el precio de los productos sellados de TCG entre las tiendas
+          de Chile y te dice dónde está más barato.
+        </p>
+        <p class="footer__note">100 % local · sin IA · sin servicios externos</p>
+      </div>
+
+      <nav class="footer__col">
+        <h3>Navega</h3>
+        <a href="#/inicio">Inicio</a>
+        <a href="#/favoritos">Favoritos</a>
+        <a href="#/alertas">Alertas</a>
+      </nav>
+
+      <nav class="footer__col">
+        <h3>Administración</h3>
+        <a href="#/admin/tiendas">Tiendas</a>
+        <a href="#/admin/revision">Revisión</a>
+        <a href="#/admin/productos">Productos</a>
+        <a href="#/admin/configuracion">Configuración</a>
+      </nav>
+
+      <div class="footer__col">
+        <h3>Catálogo</h3>
+        <div id="footer-stats" class="footer__stats"></div>
+      </div>
+
+      <button class="footer__top" id="btn-top" title="Volver arriba" aria-label="Volver arriba">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 19V5M6 11l6-6 6 6"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="footer__bottom">
+      TCG Chile 2026 · Comparador local de precios · Santiago de Chile
+    </div>
+  </footer>
+
+  <script src="/assets/app.js" type="module"></script>
+</body>
+</html>

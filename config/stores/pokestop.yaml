@@ -1,0 +1,69 @@
+# =====================================================================
+# Pokestop (https://pokestop.cl) — Tiendanube / Nuvemshop.
+#
+# Otra plataforma nueva. Se reconoce por las clases `js-item-product`,
+# `js-nubesdk-slot` y por las imágenes en acdn-us.mitiendanube.com.
+#
+# Aquí NO se abre una ficha por producto: cada tarjeta del listado ya trae su
+# propio bloque schema.org/Product con SKU, disponibilidad y existencias. Con
+# `parse_inline: true` se leen ~230 productos en 6 peticiones en vez de 230.
+#
+# DOS DETALLES QUE IMPORTAN:
+#
+# 1) El precio del JSON-LD es el de lista, no el que se cobra. En la tarjeta
+#    de First Partner Illustration Series 3 el JSON-LD dice 49990 y la tienda
+#    cobra 44.990. Por eso `selectors.price` apunta a `.js-price-display`
+#    (el precio mostrado): los selectores tienen prioridad sobre el JSON-LD.
+#    `.js-compare-price-display` es el precio tachado, no se usa.
+#
+# 2) El SKU se repite entre productos distintos: la Booster Box en español y
+#    la de inglés de Perfect Order comparten `PER-ORD04`, y la ETB inglesa
+#    comparte `CHAOS-01` con la Booster Box inglesa. Tomarlo como identidad
+#    haría que una ficha pisara a la otra en cada scraping, así que
+#    `id_from_sku: false` deja la URL como identidad. El SKU se sigue
+#    guardando como dato; no se usa para agrupar.
+#
+# Las dos URLs que pediste son categorías distintas de la misma tienda:
+# /sellados/ (~229) y /preventas (17).
+# =====================================================================
+
+code: pokestop
+name: "Pokestop"
+base_url: "https://pokestop.cl"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Sellados"
+    url: "/sellados/"
+    game: pokemon
+  - name: "Preventas"
+    url: "/preventas"
+    game: pokemon
+
+# Tiendanube pagina con /pagina/N/ y también acepta ?page=N, que es lo que
+# necesita `parse_inline` (con `mode: link` solo se leería la primera página).
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 8
+
+listing:
+  item: "div.js-item-product"
+  link: "a.item-link"
+  parse_inline: true
+
+use_json_ld: true
+id_from_sku: false
+
+selectors:
+  name: ".js-item-name"
+  price: [".js-price-display"]
+  image: ".js-item-image"
+
+attributes:
+  image_attr: src

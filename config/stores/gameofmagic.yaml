@@ -1,0 +1,45 @@
+# =====================================================================
+# Game of Magic (https://www.gameofmagictienda.cl) — Bsale.
+#
+# Misma plataforma y mismos selectores que Third Impact: las tiendas Bsale
+# comparten tema, así que la receta se reutiliza tal cual.
+#
+# Catálogo pequeño: con `?limit=100` los ~85 productos entran en una sola
+# página. Se dejan 3 por si crece.
+#
+# Como en Third Impact, el idioma vive en el nombre del JSON-LD y algunas
+# fichas esconden la versión española y la inglesa bajo la misma URL; ver
+# thirdimpact.yaml para la explicación larga.
+# =====================================================================
+
+code: gameofmagic
+name: "Game of Magic"
+base_url: "https://www.gameofmagictienda.cl"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Pokémon"
+    url: "/collection/pokemon?limit=100"
+    game: pokemon
+
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 3
+
+listing:
+  item: "div.bs-collection__product"
+  link: "a.bs-collection__product-info"
+
+use_json_ld: true
+expand_json_ld_variants: true
+
+selectors:
+  # Sin `name`: se usa el del JSON-LD, que es el que trae el idioma.
+  price: [".bs-product__final-price"]
+  description: ".bs-product__description"

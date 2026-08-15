@@ -1,0 +1,35 @@
+# =====================================================================
+# AFK Store (https://www.afkstore.cl) — Shopify.
+#   Verificado: /collections/pokemon-productos/products.json devuelve JSON.
+#
+# 52 productos y 107 variantes: aquí la variante ES el idioma.
+#
+#   Ultra Premium Collection 151 | Upc
+#       Ingles   $950.000  disponible
+#       Español  $850.000  agotado
+#
+# El adaptador `shopify` publica cada variante como oferta propia con su URL
+# ?variant=<id>, así que el idioma queda separado sin tocar nada más.
+#
+# OJO con los precios de esta tienda: son los que ella publica, pero están
+# muy por encima del resto (una UPC 151 a $950.000). No es un fallo de
+# lectura —la ficha muestra ese mismo número—, simplemente esta tienda casi
+# nunca va a ganar una comparación.
+# =====================================================================
+
+code: afkstore
+name: "AFK Store"
+base_url: "https://www.afkstore.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon-productos
+    name: "Pokémon"
+    game: pokemon
+
+page_size: 250
+max_pages: 10
