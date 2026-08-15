@@ -219,6 +219,7 @@ def persist_products(
 
     min_hours = float(settings.get("history.min_hours_between_snapshots", 24))
     seen_ids: List[int] = []
+    comienzo = time.perf_counter()
 
     with transaction() as conn:
         existing_rows = conn.execute(
@@ -303,6 +304,11 @@ def persist_products(
                 )
             lote.flush()
 
+    # Separado del tiempo total del scraping a propósito: así se ve de un
+    # vistazo si el cuello de botella es descargar o es escribir en la base.
+    log("info", store["code"],
+        f"Guardado en {time.perf_counter() - comienzo:.1f}s "
+        f"({stats.new} altas, {stats.updated} cambios, {stats.unchanged} sin cambios)")
     return stats
 
 

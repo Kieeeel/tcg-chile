@@ -16,6 +16,7 @@ import sqlite3
 import threading
 from collections import OrderedDict
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional
 
@@ -310,7 +311,15 @@ def rows_to_dicts(rows: Iterable[Any]) -> List[Dict[str, Any]]:
 
 
 def log(level: str, scope: str, message: str) -> None:
-    """Escribe en app_log (alimenta la consola de la interfaz)."""
+    """Escribe en app_log (alimenta la consola de la interfaz) y por pantalla.
+
+    Lo de imprimir importa cuando esto corre desatendido en GitHub Actions: si
+    los mensajes solo van a la base, el registro del flujo se queda mudo
+    durante toda la actualización y no hay forma de saber en qué punto está ni
+    dónde se atasca.
+    """
+    marca = datetime.now(timezone.utc).strftime("%H:%M:%S")
+    print(f"[{marca}] {level:5} {scope:14} {message}", flush=True)
     try:
         with transaction() as conn:
             conn.execute(
