@@ -44,12 +44,17 @@ TIPOS = ["message", "chat_member", "chat_join_request"]
 AYUDA = """<b>Órdenes de administración</b>
 
 /socios — quién está y cuándo vence
-/alta &lt;id&gt; [días] — dar de alta a mano
-/renovar &lt;id&gt; [días] — sumar días al plazo
+/alta &lt;id&gt; [días o fecha]
+/renovar &lt;id&gt; [días o fecha]
 /baja &lt;id&gt; — expulsar ahora
 /ayuda — esto
 
-Los días, si no los pones, son los de la configuración."""
+El plazo admite las dos formas:
+<code>/alta 123456789 31</code> — 31 días desde hoy
+<code>/alta 123456789 30/09/2026</code> — hasta esa fecha
+
+Con fecha, ese día entero cuenta: sale de madrugada.
+Con días, si renueva antes de vencer, se suman a lo que le quedaba."""
 
 
 def config() -> Dict[str, Any]:
@@ -80,6 +85,35 @@ def _leer_fecha(valor: Any) -> Optional[datetime]:
 
 def _dias_por_defecto() -> int:
     return int(config().get("dias", 31) or 31)
+
+
+_FORMATOS_FECHA = ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y")
+
+# Chile va cuatro horas por detrás de UTC en invierno y tres en verano. Al
+# fijar una fecha de vencimiento se toma la más generosa: así el acceso nunca
+# se corta antes de que termine ese día en Chile.
+HORAS_CHILE = 4
+
+
+def parsear_plazo(texto: str) -> Optional[datetime]:
+    """Convierte «31» o «2026-09-30» o «30/09/2026» en un vencimiento.
+
+    Un número son días a partir de ahora; una fecha es el último día de
+    acceso, incluido: quien pone el 30 de septiembre sigue dentro todo ese
+    día y sale de madrugada.
+    """
+    texto = texto.strip()
+    if texto.isdigit():
+        return _ahora() + timedelta(days=int(texto))
+
+    for formato in _FORMATOS_FECHA:
+        try:
+            dia = datetime.strptime(texto, formato)
+        except ValueError:
+            continue
+        fin = dia.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        return fin + timedelta(hours=HORAS_CHILE)
+    return None
 
 
 def _dias_hasta(vence: datetime, ahora: datetime) -> int:
@@ -158,25 +192,31 @@ def socios(estado: Optional[str] = "activo") -> List[Dict[str, Any]]:
 
 
 def dar_alta(user_id: int, dias: Optional[int] = None, *,
+             hasta: Optional[datetime] = None,
              nombre: Optional[str] = None, usuario: Optional[str] = None,
              nota: Optional[str] = None) -> Dict[str, Any]:
     """Alta nueva o renovación.
 
-    Si el plazo todavía no ha vencido, los días se SUMAN a lo que quedaba: a
-    quien renueva con una semana por delante no se le regalan ni se le quitan
-    esos días.
+    Con `hasta` la fecha manda tal cual, sin sumas: es lo que quieres cuando
+    dices «este entra hasta el 30 de septiembre».
+
+    Con `dias`, en cambio, se SUMAN a lo que quedaba: a quien renueva con una
+    semana por delante no se le regalan ni se le quitan esos días.
     """
-    dias = dias or _dias_por_defecto()
     existente = socio(user_id)
     ahora = _ahora()
 
-    desde = ahora
-    if existente:
-        vence = _leer_fecha(existente["vence_at"])
-        if vence and vence > ahora and existente["estado"] == "activo":
-            desde = vence
-
-    nuevo_vence = _texto_fecha(desde + timedelta(days=dias))
+    if hasta is not None:
+        nuevo_vence = _texto_fecha(hasta)
+        dias = max(0, _dias_hasta(hasta, ahora))
+    else:
+        dias = dias or _dias_por_defecto()
+        desde = ahora
+        if existente:
+            vence = _leer_fecha(existente["vence_at"])
+            if vence and vence > ahora and existente["estado"] == "activo":
+                desde = vence
+        nuevo_vence = _texto_fecha(desde + timedelta(days=dias))
     with transaction() as conn:
         conn.execute(
             """INSERT INTO miembros (user_id, nombre, usuario, vence_at, estado,
@@ -329,14 +369,39 @@ async def _obedecer(texto: str) -> None:
 
     elif orden in ("/alta", "/renovar"):
         if len(partes) < 2 or not partes[1].isdigit():
-            await responder(f"Uso: <code>{orden} &lt;id&gt; [días]</code>")
+            await responder(
+                f"Uso: <code>{orden} &lt;id&gt; [días o fecha]</code>\n"
+                f"Ejemplos:\n"
+                f"<code>{orden} 123456789</code> — {_dias_por_defecto()} días\n"
+                f"<code>{orden} 123456789 31</code> — 31 días más\n"
+                f"<code>{orden} 123456789 30/09/2026</code> — hasta esa fecha"
+            )
             return
+
         user_id = int(partes[1])
-        dias = int(partes[2]) if len(partes) > 2 and partes[2].isdigit() else None
-        alta = dar_alta(user_id, dias, nota="alta manual")
+        hasta = dias = None
+        if len(partes) > 2:
+            plazo = parsear_plazo(partes[2])
+            if plazo is None:
+                await responder(
+                    f"No entiendo «{partes[2]}». Pon un número de días (31) "
+                    f"o una fecha (30/09/2026)."
+                )
+                return
+            if partes[2].isdigit():
+                dias = int(partes[2])
+            else:
+                hasta = plazo
+
+        alta = dar_alta(user_id, dias, hasta=hasta, nota="alta manual")
+        detalle = (
+            f"hasta el {alta['vence_at'][:10]}"
+            if hasta is not None
+            else f"+{alta['dias']} días, hasta el {alta['vence_at'][:10]}"
+        )
         await responder(
-            f"{'Renovado' if alta['renovacion'] else 'Dado de alta'} {user_id}: "
-            f"+{alta['dias']} días, hasta el {alta['vence_at'][:10]}."
+            f"{'Renovado' if alta['renovacion'] else 'Dado de alta'} "
+            f"{user_id}: {detalle}."
         )
         await _privado(user_id, _bienvenida(alta["vence_at"]))
 
