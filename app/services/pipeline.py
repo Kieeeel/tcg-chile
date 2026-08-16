@@ -94,20 +94,22 @@ async def run_all(trigger: str = "manual", store_codes: Optional[List[str]] = No
 
             # Y se cuenta al grupo, si está configurado. Un fallo aquí no debe
             # dar por fracasada una actualización que sí trajo los precios.
+            # Publicar y atender el grupo van por su cuenta en un trabajo
+            # aparte que corre cada hora (`run.py --publicar`): así las ofertas
+            # salen a goteo en vez de diez de golpe al acabar el scraping.
             publicado = {"sent": 0}
-            try:
-                publicado = await notify_service.publicar()
-            except Exception as exc:  # noqa: BLE001
-                log("warn", "telegram", f"No se pudo publicar: {exc}")
+            if not settings.get("telegram.publicar_aparte", True):
+                try:
+                    publicado = await notify_service.publicar()
+                except Exception as exc:  # noqa: BLE001
+                    log("warn", "telegram", f"No se pudo publicar: {exc}")
 
-            # Altas, avisos y expulsiones del grupo de pago. Igual que arriba:
-            # un fallo aquí no puede tumbar una actualización de precios.
-            try:
-                from app.services import membership
+                try:
+                    from app.services import membership
 
-                await membership.ejecutar()
-            except Exception as exc:  # noqa: BLE001
-                log("warn", "membresia", f"No se pudo revisar: {exc}")
+                    await membership.ejecutar()
+                except Exception as exc:  # noqa: BLE001
+                    log("warn", "membresia", f"No se pudo revisar: {exc}")
 
             duration_ms = int((time.monotonic() - started) * 1000)
             summary = {

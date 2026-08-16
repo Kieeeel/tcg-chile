@@ -1,0 +1,46 @@
+name: Publicar en Telegram
+
+# Cada hora, en punto. No recorre ninguna tienda: solo saca de la base la
+# siguiente oferta pendiente y la publica, y de paso atiende el grupo de pago.
+#
+# Va separado del scraping a propósito. Publicándolo todo al terminar una
+# pasada, el grupo recibía diez mensajes de golpe y luego cuatro horas de
+# silencio; y el trabajo se quedaba cincuenta minutos esperando entre mensaje
+# y mensaje, que es tiempo tirado y una pasada larga que se puede cortar.
+#
+# Así también se vacía sola la cola: si un scraping encuentra treinta bajadas,
+# van saliendo a lo largo del día en vez de perderse las veinte últimas.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  # Si una publicación se queda colgada, la siguiente hora la reemplaza: es
+  # preferible perder un mensaje a acumular trabajos zombis.
+  group: publicar
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Publicar lo pendiente
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+        run: python run.py --publicar

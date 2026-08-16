@@ -19,6 +19,8 @@ def main() -> int:
     parser.add_argument("--reload", action="store_true", help="recarga automática (desarrollo)")
     parser.add_argument("--update", action="store_true", help="actualiza las tiendas y termina")
     parser.add_argument("--rematch", action="store_true", help="reagrupa sin scrapear y termina")
+    parser.add_argument("--publicar", action="store_true",
+                        help="publica en Telegram lo que haya pendiente y termina")
     parser.add_argument("--store", action="append", help="limita --update a estas tiendas")
     args = parser.parse_args()
 
@@ -28,6 +30,17 @@ def main() -> int:
 
     init_db()
     seed_catalogs()
+
+    if args.publicar:
+        # Publicar va por su cuenta, cada hora, para que las ofertas salgan a
+        # goteo y no a ráfagas de diez cada vez que termina un scraping.
+        # También atiende las membresías, que tampoco dependen de los precios.
+        from app.services import membership, notify
+
+        resultado = asyncio.run(notify.publicar())
+        asyncio.run(membership.ejecutar())
+        print(f"\nTelegram: {resultado}\n")
+        return 0
 
     if args.update or args.rematch:
         from app.services import ingest, pipeline

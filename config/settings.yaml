@@ -58,16 +58,25 @@ telegram:
   # producto de $80.000 no es noticia.
   min_drop_pct: 5
   min_drop_amount: 2000
-  # Tope por actualización, y cuántas horas atrás se mira.
-  max_per_run: 10
+  # Publicar corre en su propio flujo cada hora (`run.py --publicar`), no al
+  # final del scraping. En false vuelve a publicarse todo junto al terminar
+  # una pasada de precios.
+  publicar_aparte: true
+  # Cuántas ofertas por publicación. Con el flujo horario, 1 = una cada hora.
+  max_per_run: 1
+  # Hasta cuántas horas atrás se mira. Lo que no salga hoy sale mañana,
+  # mientras no pase de aquí.
   max_age_hours: 48
   hide_preview: true
   # Si no hay ninguna bajada que contar, publicar igualmente una oportunidad
   # del comparador: un producto que está bastante más barato en una tienda que
   # en las demás. Evita que el grupo pase días mudo.
   destacado_si_no_hay: true
-  destacado_min_pct: 5          # diferencia mínima contra la mediana
+  destacado_min_pct: 5           # diferencia mínima contra la mediana
   destacado_no_repetir_dias: 14  # no repetir el mismo producto en 2 semanas
+  # Horas de silencio antes de soltar un relleno. Con el publicador cada hora,
+  # sin esto un día tranquilo saldrían 24 «oportunidades» seguidas.
+  destacado_min_horas_entre: 8
   # false -> un mensaje con la lista de todas las ofertas.
   # true  -> un mensaje por oferta, más fáciles de reenviar y comentar sueltos,
   #          pero llenan más el grupo. Con `max_per_run: 8` son 8 mensajes.

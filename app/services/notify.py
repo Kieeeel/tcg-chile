@@ -15,12 +15,13 @@ import html
 import os
 import random
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
 
 from app import settings
-from app.db.database import get_connection, log, query, transaction
+from app.db.database import get_connection, log, query, query_one, transaction
 
 API = "https://api.telegram.org"
 
@@ -389,6 +390,25 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
     return {"sent": len(eventos), "dry_run": False, "preview": mensajes}
 
 
+def _horas_desde_ultimo_envio() -> Optional[float]:
+    """Cuánto hace del último mensaje, sea una oferta o un destacado."""
+    fila = query_one(
+        """SELECT MAX(cuando) AS ultimo FROM (
+               SELECT MAX(sent_at) AS cuando FROM telegram_sent
+               UNION ALL
+               SELECT MAX(sent_at) AS cuando FROM telegram_destacados
+           ) AS todos"""
+    )
+    valor = fila["ultimo"] if fila else None
+    if not valor:
+        return None
+    try:
+        ultimo = datetime.fromisoformat(str(valor)).replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+    return (datetime.now(timezone.utc) - ultimo).total_seconds() / 3600
+
+
 async def _publicar_destacado(forzar_envio: bool) -> Dict[str, Any]:
     """Plan B para los días sin bajadas: una buena oportunidad del comparador.
 
@@ -400,6 +420,18 @@ async def _publicar_destacado(forzar_envio: bool) -> Dict[str, Any]:
     if not cfg.get("destacado_si_no_hay", True):
         log("info", "telegram", "Nada que publicar")
         return {"sent": 0, "reason": "nada nuevo que contar"}
+
+    # Con el publicador corriendo cada hora, sin este freno un día tranquilo
+    # se llenaría de 24 «oportunidades» seguidas. El relleno tiene que notarse
+    # poco: está para tapar los silencios largos, no para hablar por hablar.
+    espera = float(cfg.get("destacado_min_horas_entre", 8) or 0)
+    if espera > 0:
+        desde = _horas_desde_ultimo_envio()
+        if desde is not None and desde < espera:
+            log("info", "telegram",
+                f"Nada que publicar. Se calla: hace {desde:.1f} h del último "
+                f"mensaje y el relleno espera {espera:.0f} h")
+            return {"sent": 0, "reason": "demasiado pronto para un destacado"}
 
     oportunidad = destacado()
     if not oportunidad:
