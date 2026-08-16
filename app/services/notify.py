@@ -87,6 +87,9 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
         SELECT e.id, e.type, e.old_value, e.new_value, e.pct_change, e.created_at,
                sp.name AS offer_name, sp.url, sp.language, sp.price AS current_price,
                p.id AS product_id, p.display_name, p.game,
+               -- La foto de la tienda manda: es la de ese producto concreto.
+               -- La del producto maestro es la de otra tienda cualquiera.
+               COALESCE(sp.image_url, p.image_url) AS image_url,
                s.name AS store_name
         FROM events e
         JOIN store_products sp ON sp.id = e.store_product_id AND sp.is_active = 1
@@ -188,7 +191,13 @@ def componer_sueltos(eventos: List[Dict[str, Any]]) -> List[str]:
 # ---------------------------------------------------------------------------
 # Envío
 # ---------------------------------------------------------------------------
-async def enviar(texto: str) -> Dict[str, Any]:
+async def enviar(texto: str, imagen: Optional[str] = None) -> Dict[str, Any]:
+    """Manda un mensaje. Con `imagen`, la foto va arriba y el texto debajo.
+
+    Telegram descarga la foto él mismo desde la URL. Si no puede —enlace roto,
+    formato raro, la tienda le niega el acceso— se reintenta como mensaje de
+    texto: mejor una oferta sin foto que una oferta que no se publica.
+    """
     cfg = config()
     clave = token()
     chat = chat_id()
@@ -197,7 +206,27 @@ async def enviar(texto: str) -> Dict[str, Any]:
     if not chat:
         raise RuntimeError("Falta el grupo: TELEGRAM_CHAT_ID o telegram.chat_id")
 
-    async with httpx.AsyncClient(timeout=20) as cliente:
+    # El pie de una foto admite 1024 caracteres; un mensaje suelto, 4096.
+    con_foto = bool(imagen) and len(texto) <= 1024
+
+    async with httpx.AsyncClient(timeout=30) as cliente:
+        if con_foto:
+            respuesta = await cliente.post(
+                f"{API}/bot{clave}/sendPhoto",
+                json={
+                    "chat_id": chat,
+                    "photo": imagen,
+                    "caption": texto,
+                    "parse_mode": "HTML",
+                },
+            )
+            datos = respuesta.json()
+            if datos.get("ok"):
+                return datos
+            log("warn", "telegram",
+                f"No se pudo enviar con foto ({datos.get('description')}); "
+                f"se manda solo el texto")
+
         respuesta = await cliente.post(
             f"{API}/bot{clave}/sendMessage",
             json={
@@ -263,12 +292,13 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
         # Uno a uno, marcando cada oferta en cuanto sale. Si el envío se corta
         # a la mitad, las que ya salieron no se repiten en la próxima pasada.
         pausa = float(cfg.get("delay_between_messages", 1.5))
+        con_imagen = bool(cfg.get("include_image", True))
         for indice, (evento, mensaje) in enumerate(zip(eventos, mensajes)):
             if indice:
                 # Telegram corta a un grupo que recibe más de ~20 mensajes por
                 # minuto; esta pausa mantiene el ritmo por debajo.
                 await asyncio.sleep(pausa)
-            await enviar(mensaje)
+            await enviar(mensaje, evento.get("image_url") if con_imagen else None)
             _marcar_enviados([evento["id"]])
 
     log("info", "telegram",

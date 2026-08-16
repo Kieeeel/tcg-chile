@@ -38,7 +38,8 @@ def ejemplos(cuantos: int):
     # tiendas distintas y la prueba no enseña nada.
     filas = query(
         """SELECT p.display_name, p.id AS product_id, sp.name AS offer_name,
-                  sp.url, sp.price, s.name AS store_name
+                  sp.url, sp.price, s.name AS store_name,
+                  COALESCE(sp.image_url, p.image_url) AS image_url
            FROM products p
            JOIN store_products sp ON sp.id = (
                    SELECT sp2.id FROM store_products sp2
@@ -99,9 +100,12 @@ async def main() -> int:
     )
 
     print(f"\n{len(muestras)} ofertas de muestra en {len(mensajes)} mensaje(s):\n")
-    for mensaje in mensajes:
+    for indice, mensaje in enumerate(mensajes):
         print("─" * 60)
         print(mensaje)
+        if args.sueltos:
+            foto = muestras[indice].get("image_url")
+            print(f"   [foto] {foto or 'sin imagen — se manda solo el texto'}")
     print("─" * 60)
 
     if not args.enviar:
@@ -116,7 +120,9 @@ async def main() -> int:
     for indice, mensaje in enumerate(mensajes):
         if indice:
             await asyncio.sleep(1.5)
-        await notify.enviar(mensaje)
+        # La foto solo tiene sentido con un producto por mensaje.
+        foto = muestras[indice].get("image_url") if args.sueltos else None
+        await notify.enviar(mensaje, foto)
     print(f"\nEnviado a {notify.chat_id()}. Míralo en el grupo.\n")
     return 0
 
