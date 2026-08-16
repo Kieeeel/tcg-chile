@@ -44,9 +44,12 @@ scheduler:
 #   Linux     export TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
 # ---------------------------------------------------------------------------
 telegram:
-  enabled: false
+  enabled: true
+  # En simulación: el mensaje se escribe en el registro en vez de enviarse.
+  # Poner en false cuando el formato convenza.
   dry_run: true
-  # Grupo o canal: «@mi_canal», o el id numérico si el grupo es privado.
+  # Vacío a propósito: el grupo se pasa en TELEGRAM_CHAT_ID, para no dejar el
+  # número escrito en un repositorio público. Aquí valdría «@mi_canal» o el id.
   chat_id: ""
   header: "🔥 <b>Ofertas TCG Chile</b>"
   # Qué se anuncia: price_drop | back_in_stock | new_product
