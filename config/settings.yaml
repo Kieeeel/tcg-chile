@@ -65,7 +65,7 @@ telegram:
   # false -> un mensaje con la lista de todas las ofertas.
   # true  -> un mensaje por oferta, más fáciles de reenviar y comentar sueltos,
   #          pero llenan más el grupo. Con `max_per_run: 8` son 8 mensajes.
-  one_message_per_offer: false
+  one_message_per_offer: true
   # Segundos entre mensajes cuando van sueltos. Telegram corta a un grupo que
   # recibe más de unos 20 por minuto.
   delay_between_messages: 1.5
