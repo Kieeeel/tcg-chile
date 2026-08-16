@@ -175,12 +175,13 @@ def _linea(evento: Dict[str, Any]) -> str:
     filas = [f"{icono} <b>{titular}</b>", f"<b>{_titulo(evento)}</b>"]
 
     if evento["type"] == "price_drop":
-        # El precio anterior tachado: se entiende de un vistazo, sin leer.
+        # El precio anterior tachado y el porcentaje entre paréntesis: se
+        # entiende de un vistazo, sin necesidad de leer una línea de ahorro.
+        pct = abs(evento["pct_change"] or 0)
         filas.append(
             f"Precio · {_pesos(evento['new_value'])} "
-            f"<s>{_pesos(evento['old_value'])}</s>"
+            f"(<s>{_pesos(evento['old_value'])}</s> / −{pct:.0f} %)"
         )
-        filas.append(f"Ahorro · {_pesos(evento.get('_bajada') or 0)}")
     else:
         # En «volvió a haber stock» y «nuevo», `new_value` no es un precio:
         # el importe se toma de la oferta tal como está ahora.
