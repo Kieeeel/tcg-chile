@@ -79,7 +79,7 @@ telegram:
   # Lo marca el tiempo desde el último mensaje, no el reloj de pared: los
   # horarios de GitHub llegan tarde y atarlo a la hora en punto dejaba el
   # grupo mudo.
-  destacado_min_horas_entre: 1
+  destacado_min_horas_entre: 0.5
   # Franja horaria de Chile en la que se permite el relleno. Fuera de aquí el
   # grupo se queda callado: un producto destacado a las 4 de la mañana no lo
   # ve nadie y solo sirve para que la gente silencie el grupo.
