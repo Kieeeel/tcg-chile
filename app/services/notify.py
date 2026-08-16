@@ -25,6 +25,19 @@ from app.db.database import get_connection, log, query, query_one, transaction
 
 API = "https://api.telegram.org"
 
+
+class TelegramRechazo(RuntimeError):
+    """Telegram entendió la petición y dijo que no.
+
+    `permanente` distingue lo que no va a cambiar por reintentar —un mensaje
+    con HTML mal formado, una foto que no puede descargar— de lo que sí, como
+    un «vas demasiado rápido».
+    """
+
+    def __init__(self, mensaje: str, permanente: bool = True) -> None:
+        super().__init__(mensaje)
+        self.permanente = permanente
+
 # Qué sabe anunciar, y con qué cara.
 PLANTILLAS = {
     "price_drop": "📉",
@@ -324,6 +337,7 @@ async def enviar(texto: str, imagen: Optional[str] = None) -> Dict[str, Any]:
     datos = respuesta.json()
     if not datos.get("ok"):
         detalle = datos.get("description")
+        codigo = datos.get("error_code")
         # Cuando un grupo pasa a supergrupo, Telegram le cambia el id y devuelve
         # el nuevo aquí mismo. Decirlo ahorra tener que ir a buscarlo.
         nuevo = (datos.get("parameters") or {}).get("migrate_to_chat_id")
@@ -332,7 +346,13 @@ async def enviar(texto: str, imagen: Optional[str] = None) -> Dict[str, Any]:
                 f". El grupo cambió de identificador: pon "
                 f"TELEGRAM_CHAT_ID = {nuevo} (antes {chat})"
             )
-        raise RuntimeError(f"Telegram rechazó el mensaje: {detalle}")
+        # 429 es «vas muy rápido»: reintentar tiene sentido. El resto —HTML mal
+        # formado, foto que no puede descargar, grupo que no existe— no cambia
+        # por insistir, y quien llama necesita saberlo para no atascarse.
+        raise TelegramRechazo(
+            f"Telegram rechazó el mensaje: {detalle}",
+            permanente=codigo != 429,
+        )
     return datos
 
 
@@ -382,7 +402,19 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
                 # Telegram corta a un grupo que recibe más de ~20 mensajes por
                 # minuto; esta pausa mantiene el ritmo por debajo.
                 await asyncio.sleep(pausa)
-            await enviar(mensaje, evento.get("image_url") if con_imagen else None)
+            try:
+                await enviar(mensaje, evento.get("image_url") if con_imagen else None)
+            except TelegramRechazo as exc:
+                if not exc.permanente:
+                    raise
+                # Se descarta y se sigue. Antes la excepción subía y la oferta
+                # se quedaba sin marcar: la siguiente pasada cogía la misma
+                # —van por antigüedad—, volvía a fallar, y el grupo se quedaba
+                # mudo para siempre por culpa de un solo mensaje defectuoso.
+                log("warn", "telegram",
+                    f"Se descarta «{evento.get('display_name') or evento.get('offer_name')}»: {exc}")
+                _marcar_enviados([evento["id"]])
+                continue
             _marcar_enviados([evento["id"]])
 
     log("info", "telegram",
