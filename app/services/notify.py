@@ -38,11 +38,24 @@ def token() -> Optional[str]:
     return (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip() or None
 
 
+def chat_id() -> Optional[str]:
+    """Grupo o canal donde publicar.
+
+    Manda la variable de entorno TELEGRAM_CHAT_ID si está; si no, lo que diga
+    `config/settings.yaml`. No es una credencial —sin el token nadie puede
+    publicar ahí— pero con el repositorio público conviene poder dejarlo fuera.
+    """
+    del_entorno = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip()
+    if del_entorno:
+        return del_entorno
+    return (config().get("chat_id") or "").strip() or None
+
+
 def estado() -> Dict[str, Any]:
     cfg = config()
     return {
         "enabled": bool(cfg.get("enabled")),
-        "chat_id": cfg.get("chat_id") or None,
+        "chat_id": chat_id(),
         "has_token": token() is not None,
         "dry_run": bool(cfg.get("dry_run", True)),
         "publish": list(cfg.get("publish") or []),
@@ -171,11 +184,11 @@ def componer(eventos: List[Dict[str, Any]]) -> str:
 async def enviar(texto: str) -> Dict[str, Any]:
     cfg = config()
     clave = token()
-    chat = cfg.get("chat_id")
+    chat = chat_id()
     if not clave:
         raise RuntimeError("Falta la variable de entorno TELEGRAM_BOT_TOKEN")
     if not chat:
-        raise RuntimeError("Falta telegram.chat_id en config/settings.yaml")
+        raise RuntimeError("Falta el grupo: TELEGRAM_CHAT_ID o telegram.chat_id")
 
     async with httpx.AsyncClient(timeout=20) as cliente:
         respuesta = await cliente.post(
@@ -220,5 +233,5 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
             "INSERT INTO telegram_sent (event_id) VALUES (?) ON CONFLICT DO NOTHING",
             [(e["id"],) for e in eventos],
         )
-    log("info", "telegram", f"{len(eventos)} ofertas publicadas en {cfg.get('chat_id')}")
+    log("info", "telegram", f"{len(eventos)} ofertas publicadas en {chat_id()}")
     return {"sent": len(eventos), "dry_run": False, "preview": texto}
