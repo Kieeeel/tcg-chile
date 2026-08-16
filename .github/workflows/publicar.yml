@@ -1,18 +1,21 @@
 name: Publicar en Telegram
 
-# Cada hora, en punto. No recorre ninguna tienda: solo saca de la base la
-# siguiente oferta pendiente y la publica, y de paso atiende el grupo de pago.
+# Cada 10 minutos. No recorre ninguna tienda: saca de la base la siguiente
+# oferta pendiente, la publica, y de paso atiende el grupo de pago.
 #
-# Va separado del scraping a propósito. Publicándolo todo al terminar una
-# pasada, el grupo recibía diez mensajes de golpe y luego cuatro horas de
-# silencio; y el trabajo se quedaba cincuenta minutos esperando entre mensaje
-# y mensaje, que es tiempo tirado y una pasada larga que se puede cortar.
+# El ritmo tiene dos velocidades, y las decide el propio programa:
 #
-# Así también se vacía sola la cola: si un scraping encuentra treinta bajadas,
-# van saliendo a lo largo del día en vez de perderse las veinte últimas.
+#   · Con ofertas en cola — una cada 10 minutos, hasta vaciarla. Después de un
+#     scraping que encuentra ocho bajadas, salen en hora y veinte.
+#   · Sin ofertas — una «oportunidad» del comparador, pero solo una por hora y
+#     dentro de la franja de día. Son las horas intermedias entre scrapings.
+#
+# Va separado del scraping a propósito: publicándolo todo al terminar una
+# pasada, el grupo recibía ocho mensajes de golpe y luego cuatro horas de
+# silencio, y el trabajo se quedaba casi una hora esperando entre mensajes.
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 concurrency:

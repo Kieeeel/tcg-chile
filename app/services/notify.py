@@ -241,7 +241,9 @@ def destacado() -> Optional[Dict[str, Any]]:
     dias = int(cfg.get("destacado_no_repetir_dias", 14) or 0)
 
     candidatos = [
-        o for o in queries.opportunities(limit=40, sort="percent")
+        o for o in queries.opportunities(
+            limit=int(cfg.get("destacado_candidatos", 60) or 60), sort="percent"
+        )
         if o["savings_pct"] >= minimo
     ]
     if not candidatos:
@@ -351,11 +353,10 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
         # Antes esto no dejaba rastro, y desde fuera no había forma de saber
         # si el aviso estaba apagado, mal configurado, o simplemente callado
         # porque no había nada que contar.
-        log("info", "telegram",
-            f"No hay {' ni '.join(cfg.get('publish') or ['eventos'])} "
-            f"de las últimas {cfg.get('max_age_hours', 48)} h que superen los filtros "
-            f"(bajada mínima {cfg.get('min_drop_pct', 0)}% o ${cfg.get('min_drop_amount', 0):,.0f})"
-            .replace(",", "."))
+        #
+        # No se escribe en el registro en cada pasada: corriendo cada 10
+        # minutos serían 144 líneas al día diciendo que no pasa nada. Solo se
+        # apunta cuando de verdad toca hacer algo.
         return await _publicar_destacado(forzar_envio)
 
     sueltos = bool(cfg.get("one_message_per_offer", False))
@@ -390,6 +391,59 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
     return {"sent": len(eventos), "dry_run": False, "preview": mensajes}
 
 
+def _ahora_en_chile() -> datetime:
+    """Hora local de Chile, con su cambio de horario.
+
+    Se intenta con la base de datos de zonas horarias del sistema; si no está
+    —pasa en algunos Windows— se cae a UTC−4, que es el horario de invierno.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+
+        return datetime.now(ZoneInfo("America/Santiago"))
+    except Exception:  # noqa: BLE001
+        return datetime.now(timezone(timedelta(hours=-4)))
+
+
+def _es_momento_de_relleno() -> bool:
+    """¿Toca publicar una oportunidad de relleno?
+
+    Solo en punto —los primeros minutos de la hora— y dentro de la franja
+    configurada. El publicador corre cada 10 minutos porque así vacía la cola
+    de ofertas a buen ritmo, pero el relleno no debe seguir ese ritmo: es una
+    vez por hora y solo cuando el grupo lleva rato callado.
+    """
+    cfg = config()
+    ahora = _ahora_en_chile()
+
+    if ahora.minute >= int(cfg.get("destacado_minuto_limite", 10) or 10):
+        return False
+
+    franja = cfg.get("destacado_franja") or [9, 22]
+    desde, hasta = int(franja[0]), int(franja[1])
+    if not (desde <= ahora.hour <= hasta):
+        return False
+
+    espera = float(cfg.get("destacado_min_horas_entre", 1) or 0)
+    if espera > 0:
+        transcurridas = _horas_desde_ultimo_envio()
+        if transcurridas is not None and transcurridas < espera:
+            return False
+
+    # Si hay un scraping en marcha, esperar: dentro de unos minutos puede que
+    # haya ofertas de verdad que contar, y sería absurdo soltar un relleno
+    # justo antes. Pasa en las horas en punto que coinciden con una pasada.
+    minutos = int(cfg.get("destacado_esperar_scraping_min", 20) or 0)
+    if minutos > 0:
+        fila = query_one(
+            f"SELECT COUNT(*) AS n FROM scrape_runs "
+            f"WHERE started_at >= datetime('now', '-{minutos} minutes')"
+        )
+        if fila and fila["n"]:
+            return False
+    return True
+
+
 def _horas_desde_ultimo_envio() -> Optional[float]:
     """Cuánto hace del último mensaje, sea una oferta o un destacado."""
     fila = query_one(
@@ -421,17 +475,8 @@ async def _publicar_destacado(forzar_envio: bool) -> Dict[str, Any]:
         log("info", "telegram", "Nada que publicar")
         return {"sent": 0, "reason": "nada nuevo que contar"}
 
-    # Con el publicador corriendo cada hora, sin este freno un día tranquilo
-    # se llenaría de 24 «oportunidades» seguidas. El relleno tiene que notarse
-    # poco: está para tapar los silencios largos, no para hablar por hablar.
-    espera = float(cfg.get("destacado_min_horas_entre", 8) or 0)
-    if espera > 0:
-        desde = _horas_desde_ultimo_envio()
-        if desde is not None and desde < espera:
-            log("info", "telegram",
-                f"Nada que publicar. Se calla: hace {desde:.1f} h del último "
-                f"mensaje y el relleno espera {espera:.0f} h")
-            return {"sent": 0, "reason": "demasiado pronto para un destacado"}
+    if not _es_momento_de_relleno():
+        return {"sent": 0, "reason": "no toca relleno"}
 
     oportunidad = destacado()
     if not oportunidad:
