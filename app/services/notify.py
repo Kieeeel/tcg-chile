@@ -10,6 +10,7 @@ No hace falta ninguna librería: la API de Telegram son peticiones HTTP y
 """
 from __future__ import annotations
 
+import asyncio
 import html
 import os
 from typing import Any, Dict, List, Optional
@@ -168,14 +169,20 @@ def _linea(evento: Dict[str, Any]) -> str:
 
 
 def componer(eventos: List[Dict[str, Any]]) -> str:
-    """Un solo mensaje con todas las ofertas.
-
-    Telegram limita a unos 20 mensajes por minuto en un grupo, y una lista se
-    lee mejor que diez avisos sueltos.
-    """
+    """Un solo mensaje con todas las ofertas."""
     cabecera = config().get("header", "🔥 <b>Ofertas TCG Chile</b>")
     cuerpo = "\n\n".join(_linea(e) for e in eventos)
     return f"{cabecera}\n\n{cuerpo}"
+
+
+def componer_sueltos(eventos: List[Dict[str, Any]]) -> List[str]:
+    """Un mensaje por oferta, para que cada una se pueda reenviar y comentar.
+
+    Sin cabecera repetida: doce mensajes seguidos encabezados por «Ofertas TCG
+    Chile» se leen como spam. El icono de cada línea ya distingue una bajada de
+    precio de una vuelta a stock.
+    """
+    return [_linea(e) for e in eventos]
 
 
 # ---------------------------------------------------------------------------
@@ -230,19 +237,40 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
             .replace(",", "."))
         return {"sent": 0, "reason": "nada nuevo que contar"}
 
-    texto = componer(eventos)
+    sueltos = bool(cfg.get("one_message_per_offer", False))
+    mensajes = componer_sueltos(eventos) if sueltos else [componer(eventos)]
+
     simulacion = bool(cfg.get("dry_run", True)) and not forzar_envio
     if simulacion:
         log("info", "telegram",
-            f"[simulación] se habrían publicado {len(eventos)} ofertas. "
-            f"El mensaje sería:\n{texto}")
-        return {"sent": 0, "dry_run": True, "preview": texto, "events": len(eventos)}
+            f"[simulación] se habrían publicado {len(eventos)} ofertas en "
+            f"{len(mensajes)} mensaje(s):\n\n" + "\n\n———\n\n".join(mensajes))
+        return {"sent": 0, "dry_run": True, "preview": mensajes, "events": len(eventos)}
 
-    await enviar(texto)
+    if not sueltos:
+        await enviar(mensajes[0])
+        _marcar_enviados([e["id"] for e in eventos])
+    else:
+        # Uno a uno, marcando cada oferta en cuanto sale. Si el envío se corta
+        # a la mitad, las que ya salieron no se repiten en la próxima pasada.
+        pausa = float(cfg.get("delay_between_messages", 1.5))
+        for indice, (evento, mensaje) in enumerate(zip(eventos, mensajes)):
+            if indice:
+                # Telegram corta a un grupo que recibe más de ~20 mensajes por
+                # minuto; esta pausa mantiene el ritmo por debajo.
+                await asyncio.sleep(pausa)
+            await enviar(mensaje)
+            _marcar_enviados([evento["id"]])
+
+    log("info", "telegram",
+        f"{len(eventos)} ofertas publicadas en {chat_id()} "
+        f"({len(mensajes)} mensaje(s))")
+    return {"sent": len(eventos), "dry_run": False, "preview": mensajes}
+
+
+def _marcar_enviados(ids: List[int]) -> None:
     with transaction() as conn:
         conn.executemany(
             "INSERT INTO telegram_sent (event_id) VALUES (?) ON CONFLICT DO NOTHING",
-            [(e["id"],) for e in eventos],
+            [(i,) for i in ids],
         )
-    log("info", "telegram", f"{len(eventos)} ofertas publicadas en {chat_id()}")
-    return {"sent": len(eventos), "dry_run": False, "preview": texto}
