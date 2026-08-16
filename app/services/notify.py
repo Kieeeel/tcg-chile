@@ -209,7 +209,16 @@ async def enviar(texto: str) -> Dict[str, Any]:
         )
     datos = respuesta.json()
     if not datos.get("ok"):
-        raise RuntimeError(f"Telegram rechazó el mensaje: {datos.get('description')}")
+        detalle = datos.get("description")
+        # Cuando un grupo pasa a supergrupo, Telegram le cambia el id y devuelve
+        # el nuevo aquí mismo. Decirlo ahorra tener que ir a buscarlo.
+        nuevo = (datos.get("parameters") or {}).get("migrate_to_chat_id")
+        if nuevo:
+            detalle += (
+                f". El grupo cambió de identificador: pon "
+                f"TELEGRAM_CHAT_ID = {nuevo} (antes {chat})"
+            )
+        raise RuntimeError(f"Telegram rechazó el mensaje: {detalle}")
     return datos
 
 
