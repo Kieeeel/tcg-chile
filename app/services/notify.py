@@ -408,16 +408,19 @@ def _ahora_en_chile() -> datetime:
 def _es_momento_de_relleno() -> bool:
     """¿Toca publicar una oportunidad de relleno?
 
-    Solo en punto —los primeros minutos de la hora— y dentro de la franja
-    configurada. El publicador corre cada 10 minutos porque así vacía la cola
-    de ofertas a buen ritmo, pero el relleno no debe seguir ese ritmo: es una
-    vez por hora y solo cuando el grupo lleva rato callado.
+    El ritmo lo marca «cuánto hace del último mensaje», NO el reloj de pared.
+    Antes se exigía además que la ejecución cayera en los primeros minutos de
+    la hora, para que los rellenos salieran en punto. Fue un error: los
+    horarios de GitHub llegan tarde casi siempre, y una ejecución de las 14:00
+    que arranca a las 14:13 no cumplía la condición. El resultado era un grupo
+    mudo durante horas.
+
+    Lo que queda es más simple y no depende de la puntualidad de nadie: dentro
+    de la franja de día, si el grupo lleva más de una hora callado y no acaba
+    de arrancar un scraping, toca hablar.
     """
     cfg = config()
     ahora = _ahora_en_chile()
-
-    if ahora.minute >= int(cfg.get("destacado_minuto_limite", 10) or 10):
-        return False
 
     franja = cfg.get("destacado_franja") or [9, 22]
     desde, hasta = int(franja[0]), int(franja[1])
@@ -432,7 +435,7 @@ def _es_momento_de_relleno() -> bool:
 
     # Si hay un scraping en marcha, esperar: dentro de unos minutos puede que
     # haya ofertas de verdad que contar, y sería absurdo soltar un relleno
-    # justo antes. Pasa en las horas en punto que coinciden con una pasada.
+    # justo antes.
     minutos = int(cfg.get("destacado_esperar_scraping_min", 20) or 0)
     if minutos > 0:
         fila = query_one(
@@ -440,6 +443,7 @@ def _es_momento_de_relleno() -> bool:
             f"WHERE started_at >= datetime('now', '-{minutos} minutes')"
         )
         if fila and fila["n"]:
+            log("info", "telegram", "Relleno aplazado: hay un scraping en marcha")
             return False
     return True
 
@@ -476,6 +480,16 @@ async def _publicar_destacado(forzar_envio: bool) -> Dict[str, Any]:
         return {"sent": 0, "reason": "nada nuevo que contar"}
 
     if not _es_momento_de_relleno():
+        # Por pantalla y no al registro de la base: esto corre cada 10 minutos
+        # y guardarlo llenaría `app_log` de líneas diciendo que no pasa nada.
+        # En el registro de GitHub, en cambio, es justo lo que hace falta para
+        # entender por qué el grupo está callado.
+        transcurridas = _horas_desde_ultimo_envio()
+        cuanto = f"{transcurridas:.1f} h" if transcurridas is not None else "nunca"
+        print(f"[telegram] Sin ofertas y no toca relleno "
+              f"(último mensaje: hace {cuanto}; "
+              f"franja {cfg.get('destacado_franja')}; "
+              f"hora en Chile: {_ahora_en_chile():%H:%M})", flush=True)
         return {"sent": 0, "reason": "no toca relleno"}
 
     oportunidad = destacado()

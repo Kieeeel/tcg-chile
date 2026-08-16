@@ -75,9 +75,10 @@ telegram:
   destacado_min_pct: 5          # diferencia mínima contra la mediana
   destacado_no_repetir_dias: 3  # no repetir el mismo producto en 3 días
   destacado_candidatos: 60      # de entre cuántos se elige al azar
-  # El relleno va UNA VEZ POR HORA aunque el publicador corra cada 10 minutos:
-  # solo entra en los primeros minutos de la hora en punto.
-  destacado_minuto_limite: 10
+  # El relleno va una vez por hora aunque el publicador corra cada 10 minutos.
+  # Lo marca el tiempo desde el último mensaje, no el reloj de pared: los
+  # horarios de GitHub llegan tarde y atarlo a la hora en punto dejaba el
+  # grupo mudo.
   destacado_min_horas_entre: 1
   # Franja horaria de Chile en la que se permite el relleno. Fuera de aquí el
   # grupo se queda callado: un producto destacado a las 4 de la mañana no lo
