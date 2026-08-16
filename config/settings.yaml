@@ -59,7 +59,7 @@ telegram:
   min_drop_pct: 8
   min_drop_amount: 2000
   # Tope por actualización, y cuántas horas atrás se mira.
-  max_per_run: 8
+  max_per_run: 10
   max_age_hours: 48
   hide_preview: true
   # false -> un mensaje con la lista de todas las ofertas.
@@ -69,9 +69,14 @@ telegram:
   # Manda la foto del producto con el texto debajo. Solo aplica en el modo de
   # un mensaje por oferta: en una lista junta no hay una única imagen que valga.
   include_image: true
-  # Segundos entre mensajes cuando van sueltos. Telegram corta a un grupo que
-  # recibe más de unos 20 por minuto.
-  delay_between_messages: 1.5
+  # Segundos entre mensajes cuando van sueltos. No es solo por el límite de
+  # Telegram (unos 20 por minuto): espaciarlos evita que el grupo reciba diez
+  # avisos de golpe y luego cuatro horas de silencio.
+  #
+  # OJO: esto alarga la actualización. Con 10 ofertas a 300 s son 45 minutos
+  # que el trabajo de GitHub se pasa esperando, y por eso `scrape.yml` tiene
+  # 90 minutos de margen. Si subes uno de los dos números, revisa el otro.
+  delay_between_messages: 300
 
 scraping:
   # Peticiones simultáneas dentro de una misma tienda.

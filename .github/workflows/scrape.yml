@@ -19,10 +19,10 @@ concurrency:
 jobs:
   actualizar:
     runs-on: ubuntu-latest
-    # Margen amplio a propósito: escribir contra una base remota va mucho más
-    # lento que contra el archivo local, y prefiero que una pasada lenta acabe
-    # a que se corte a medias.
-    timeout-minutes: 60
+    # 90 minutos: unos 10 de scraping y hasta 45 publicando en Telegram, que
+    # va de una oferta cada 5 minutos para no soltar diez avisos de golpe.
+    # Si cambias `max_per_run` o `delay_between_messages`, revisa este número.
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
