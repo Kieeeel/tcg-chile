@@ -171,13 +171,32 @@ class HttpClient:
                             content_hash=(cached or {}).get("content_hash", ""),
                         )
 
-                    # 429 / 5xx: esperar y reintentar
-                    if response.status_code == 429 or response.status_code >= 500:
+                    # Un 403 puede ser dos cosas muy distintas: un cortafuegos
+                    # que rechaza esta petición concreta por ir demasiado
+                    # seguida —transitorio, se arregla esperando— o un desafío
+                    # antibots de Cloudflare, que es una decisión de la tienda
+                    # y no cambia por insistir. Solo se reintenta el primero;
+                    # ante el desafío se abandona a la primera.
+                    desafio = "challenge" in (response.headers.get("cf-mitigated") or "")
+                    reintentable = (
+                        response.status_code == 429
+                        or response.status_code >= 500
+                        or (response.status_code == 403 and not desafio)
+                    )
+
+                    if reintentable:
                         last_error = f"HTTP {response.status_code}"
                         retry_after = response.headers.get("retry-after")
                         if retry_after and retry_after.isdigit():
                             delay = max(delay, float(retry_after))
                     elif response.status_code >= 400:
+                        if desafio:
+                            return FetchResult(
+                                url=url,
+                                status_code=response.status_code,
+                                text="",
+                                error="Cloudflare exige verificación de navegador",
+                            )
                         return FetchResult(
                             url=url,
                             status_code=response.status_code,
