@@ -50,6 +50,9 @@ AYUDA = """<b>Órdenes de administración</b>
 /baja &lt;id&gt; — expulsar ahora
 /ayuda — esto
 
+<b>Para saber el id de alguien:</b> reenvíame un mensaje suyo y te digo
+quién es, con las órdenes listas para copiar.
+
 El plazo admite las dos formas:
 <code>/alta 123456789 31</code> — 31 días desde hoy
 <code>/alta 123456789 30/09/2026</code> — hasta esa fecha
@@ -306,14 +309,23 @@ async def recoger_novedades() -> Dict[str, Any]:
                 altas += 1
             continue
 
-        # Orden por privado del administrador
+        # Lo que sigue es solo para el chat privado del administrador. En el
+        # grupo no se obedece nada, a propósito.
         mensaje = novedad.get("message") or {}
+        if mensaje.get("chat", {}).get("type") != "private":
+            continue
+        if mensaje.get("from", {}).get("id") != admin_id():
+            continue
+
+        # Un mensaje REENVIADO es la forma cómoda de averiguar el id de
+        # alguien: reenvías al bot algo que te escribió esa persona y él te
+        # dice quién es. Sin buscarlo en ningún otro sitio.
+        if await _responder_reenvio(mensaje):
+            ordenes += 1
+            continue
+
         texto = (mensaje.get("text") or "").strip()
         if not texto.startswith("/"):
-            continue
-        if mensaje.get("chat", {}).get("type") != "private":
-            continue  # en el grupo no se obedecen órdenes, a propósito
-        if mensaje.get("from", {}).get("id") != admin_id():
             continue
         await _obedecer(texto)
         ordenes += 1
@@ -381,6 +393,58 @@ async def _procesar_cambio(cambio: Dict[str, Any]) -> bool:
 async def _avisar_admin(texto: str) -> bool:
     destino = admin_id()
     return await _privado(destino, texto) if destino else False
+
+
+async def _responder_reenvio(mensaje: Dict[str, Any]) -> bool:
+    """Si es un mensaje reenviado, contesta con el identificador de quien lo escribió.
+
+    Telegram cambió la forma de contarlo: antes venía en `forward_from` y
+    ahora en `forward_origin`. Se miran las dos, porque los clientes viejos
+    siguen mandando la primera.
+
+    Quien tiene activada la privacidad de reenvíos sale como «usuario oculto»
+    y entonces no hay identificador que dar: no es un fallo, es su ajuste.
+    """
+    origen = mensaje.get("forward_origin") or {}
+    persona = mensaje.get("forward_from") or origen.get("sender_user") or {}
+
+    if not persona and origen.get("type") == "hidden_user":
+        await _avisar_admin(
+            f"🔒 <b>{html.escape(origen.get('sender_user_name') or 'Esa persona')}</b> "
+            f"tiene la privacidad de reenvíos activada, así que Telegram no "
+            f"dice quién es.\n\n"
+            f"Pídele que le escriba <code>/start</code> a @userinfobot y te "
+            f"pase el número, o simplemente apruébale la entrada al grupo: "
+            f"al entrar lo detecto solo."
+        )
+        return True
+
+    if not persona or not persona.get("id"):
+        return False
+
+    nombre = " ".join(
+        p for p in (persona.get("first_name"), persona.get("last_name")) if p
+    )
+    alias = f" (@{persona['username']})" if persona.get("username") else ""
+    user_id = persona["id"]
+
+    existente = socio(user_id)
+    if existente:
+        estado = (
+            f"Ya es socio: {existente['estado']}, vence el "
+            f"{fecha_local(existente['vence_at'])}."
+        )
+    else:
+        estado = "Todavía no está dado de alta."
+
+    await _avisar_admin(
+        f"🔎 <b>{html.escape(nombre or str(user_id))}</b>{html.escape(alias)}\n"
+        f"{estado}\n\n"
+        f"Su identificador es <code>{user_id}</code>\n"
+        f"<code>/alta {user_id} {_dias_por_defecto()}</code>\n"
+        f"<code>/alta {user_id} 31/12/2026</code>"
+    )
+    return True
 
 
 def _bienvenida(vence_at: str) -> str:
