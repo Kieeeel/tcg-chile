@@ -22,6 +22,7 @@ Requisitos en Telegram:
 """
 from __future__ import annotations
 
+import html
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -87,12 +88,33 @@ def _dias_por_defecto() -> int:
     return int(config().get("dias", 31) or 31)
 
 
+def fecha_local(vence_at: Any) -> str:
+    """La fecha de vencimiento como la lee una persona en Chile.
+
+    Por dentro todo se guarda en UTC, y un vencimiento de las 03:59 UTC es en
+    realidad la noche del día anterior en Chile. Mostrar el texto crudo hacía
+    que al poner «30/09» el mensaje contestara «hasta el 2026-10-01».
+    """
+    momento = _leer_fecha(vence_at)
+    if momento is None:
+        return str(vence_at)[:10]
+    return momento.astimezone(_zona_chile()).strftime("%d/%m/%Y")
+
+
 _FORMATOS_FECHA = ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y")
 
-# Chile va cuatro horas por detrás de UTC en invierno y tres en verano. Al
-# fijar una fecha de vencimiento se toma la más generosa: así el acceso nunca
-# se corta antes de que termine ese día en Chile.
+# Chile va cuatro horas por detrás de UTC en invierno y tres en verano.
 HORAS_CHILE = 4
+
+
+def _zona_chile():
+    """La zona horaria de Chile, con su cambio de hora si el sistema lo sabe."""
+    try:
+        from zoneinfo import ZoneInfo
+
+        return ZoneInfo("America/Santiago")
+    except Exception:  # noqa: BLE001
+        return timezone(timedelta(hours=-HORAS_CHILE))
 
 
 def parsear_plazo(texto: str) -> Optional[datetime]:
@@ -101,6 +123,11 @@ def parsear_plazo(texto: str) -> Optional[datetime]:
     Un número son días a partir de ahora; una fecha es el último día de
     acceso, incluido: quien pone el 30 de septiembre sigue dentro todo ese
     día y sale de madrugada.
+
+    El final del día se construye EN la zona de Chile y luego se pasa a UTC.
+    Sumar un desfase fijo no vale: entre septiembre y abril Chile está a tres
+    horas y no a cuatro, y el vencimiento se colaba una hora en el día
+    siguiente, con lo que la fecha mostrada salía cambiada.
     """
     texto = texto.strip()
     if texto.isdigit():
@@ -111,8 +138,8 @@ def parsear_plazo(texto: str) -> Optional[datetime]:
             dia = datetime.strptime(texto, formato)
         except ValueError:
             continue
-        fin = dia.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
-        return fin + timedelta(hours=HORAS_CHILE)
+        fin = dia.replace(hour=23, minute=59, second=59, tzinfo=_zona_chile())
+        return fin.astimezone(timezone.utc)
     return None
 
 
@@ -321,22 +348,46 @@ async def _procesar_cambio(cambio: Dict[str, Any]) -> bool:
             nota="entró al grupo",
         )
         log("info", "membresia",
-            f"Alta: {nombre or user_id} — vence el {alta['vence_at'][:10]}")
+            f"Alta: {nombre or user_id} — vence el {fecha_local(alta['vence_at'])}")
         await _privado(user_id, _bienvenida(alta["vence_at"]))
+
+        # Y te lo cuenta a ti, con el identificador escrito para copiar. Es la
+        # forma cómoda de tenerlo: buscar el id de alguien en Telegram obliga a
+        # recurrir a otro bot o a rebuscar en la ficha.
+        alias = f" (@{persona['username']})" if persona.get("username") else ""
+        await _avisar_admin(
+            f"👤 <b>Entró al grupo</b>\n"
+            f"{html.escape(nombre or str(user_id))}{html.escape(alias)}\n"
+            f"Vence el {fecha_local(alta['vence_at'])} "
+            f"({_dias_por_defecto()} días)\n\n"
+            f"Su identificador es <code>{user_id}</code>\n"
+            f"<code>/renovar {user_id} 31</code>\n"
+            f"<code>/baja {user_id}</code>"
+        )
         return True
 
     if nuevo in ("left", "kicked"):
         if socio(user_id):
             marcar(user_id, "baja")
             log("info", "membresia", f"{user_id} salió del grupo")
+            await _avisar_admin(
+                f"🚪 <b>Salió del grupo</b>\n"
+                f"{html.escape(persona.get('first_name') or str(user_id))} "
+                f"(<code>{user_id}</code>)"
+            )
     return False
+
+
+async def _avisar_admin(texto: str) -> bool:
+    destino = admin_id()
+    return await _privado(destino, texto) if destino else False
 
 
 def _bienvenida(vence_at: str) -> str:
     cfg = config()
     return (
         f"{cfg.get('bienvenida', '¡Bienvenido al grupo!')}\n\n"
-        f"Tu acceso está activo hasta el <b>{vence_at[:10]}</b>.\n"
+        f"Tu acceso está activo hasta el <b>{fecha_local(vence_at)}</b>.\n"
         f"Te aviso unos días antes de que venza."
     )
 
@@ -367,7 +418,7 @@ async def _obedecer(texto: str) -> None:
             vence = _leer_fecha(s["vence_at"])
             quedan = (vence - ahora).days if vence else "?"
             quien = s["nombre"] or (f"@{s['usuario']}" if s["usuario"] else s["user_id"])
-            lineas.append(f"{quien} — {s['vence_at'][:10]} ({quedan} días)")
+            lineas.append(f"{quien} — {fecha_local(s['vence_at'])} ({quedan} días)")
             lineas.append(f"<code>/renovar {s['user_id']}</code>")
             lineas.append("")
         await responder("\n".join(lineas))
@@ -400,9 +451,9 @@ async def _obedecer(texto: str) -> None:
 
         alta = dar_alta(user_id, dias, hasta=hasta, nota="alta manual")
         detalle = (
-            f"hasta el {alta['vence_at'][:10]}"
+            f"hasta el {fecha_local(alta['vence_at'])}"
             if hasta is not None
-            else f"+{alta['dias']} días, hasta el {alta['vence_at'][:10]}"
+            else f"+{alta['dias']} días, hasta el {fecha_local(alta['vence_at'])}"
         )
         await responder(
             f"{'Renovado' if alta['renovacion'] else 'Dado de alta'} "
@@ -446,7 +497,7 @@ async def revisar_vencimientos() -> Dict[str, Any]:
             marcar(s["user_id"], "expulsado")
             await _privado(s["user_id"], _despedida(s))
             log("info", "membresia",
-                f"Vencido: {s['nombre'] or s['user_id']} (venció el {s['vence_at'][:10]})")
+                f"Vencido: {s['nombre'] or s['user_id']} (venció el {fecha_local(s['vence_at'])})")
             continue
 
         quedan = _dias_hasta(vence, ahora)
@@ -474,7 +525,7 @@ def _recordatorio(s: Dict[str, Any], quedan: int) -> str:
     cuando = "hoy" if quedan <= 0 else ("mañana" if quedan == 1 else f"en {quedan} días")
     return (
         f"Tu acceso al grupo vence <b>{cuando}</b> "
-        f"({s['vence_at'][:10]}).\n\n"
+        f"({fecha_local(s['vence_at'])}).\n\n"
         f"{cfg.get('renovacion', 'Escríbeme para renovar.')}"
     )
 
