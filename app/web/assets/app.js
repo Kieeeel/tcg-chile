@@ -283,6 +283,15 @@ function rutaActual() {
 }
 
 async function render() {
+  // Arriba del todo al cambiar de página. Sin esto, al pulsar «Inicio» o un
+  // TCG desde el fondo de una lista larga, el contenido se cambiaba debajo y
+  // aparecías a media página de otra cosa.
+  //
+  // Va aquí y no en cada botón porque solo llega por navegación de verdad:
+  // los filtros reescriben la dirección con `replaceState`, que no dispara
+  // esto. Y sin animación: al saltar de página, deslizar es un estorbo.
+  window.scrollTo({ top: 0 });
+
   // "#/buscar?q=151" -> ruta "buscar"; la query la lee cada vista aparte.
   const hash = location.hash.slice(2) || 'inicio';
   const [path] = hash.split('?');
