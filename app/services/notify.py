@@ -215,16 +215,27 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
     """
     cfg = config()
     if not cfg.get("enabled") and not forzar_envio:
+        log("info", "telegram", "Desactivado (telegram.enabled = false)")
         return {"sent": 0, "reason": "desactivado"}
 
     eventos = eventos_pendientes()
     if not eventos:
+        # Antes esto no dejaba rastro, y desde fuera no había forma de saber
+        # si el aviso estaba apagado, mal configurado, o simplemente callado
+        # porque no había nada que contar.
+        log("info", "telegram",
+            f"Nada que publicar — no hay {' ni '.join(cfg.get('publish') or ['eventos'])} "
+            f"de las últimas {cfg.get('max_age_hours', 48)} h que superen los filtros "
+            f"(bajada mínima {cfg.get('min_drop_pct', 0)}% o ${cfg.get('min_drop_amount', 0):,.0f})"
+            .replace(",", "."))
         return {"sent": 0, "reason": "nada nuevo que contar"}
 
     texto = componer(eventos)
     simulacion = bool(cfg.get("dry_run", True)) and not forzar_envio
     if simulacion:
-        log("info", "telegram", f"[simulación] se habrían publicado {len(eventos)} ofertas")
+        log("info", "telegram",
+            f"[simulación] se habrían publicado {len(eventos)} ofertas. "
+            f"El mensaje sería:\n{texto}")
         return {"sent": 0, "dry_run": True, "preview": texto, "events": len(eventos)}
 
     await enviar(texto)
