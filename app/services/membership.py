@@ -477,13 +477,26 @@ async def _obedecer(texto: str) -> None:
             await responder("No hay socios activos.")
             return
         ahora = _ahora()
-        lineas = ["<b>Socios activos</b>", ""]
+        lineas = [f"<b>Socios activos</b> — {len(activos)}", ""]
         for s in activos:
             vence = _leer_fecha(s["vence_at"])
-            quedan = (vence - ahora).days if vence else "?"
-            quien = s["nombre"] or (f"@{s['usuario']}" if s["usuario"] else s["user_id"])
-            lineas.append(f"{quien} — {fecha_local(s['vence_at'])} ({quedan} días)")
-            lineas.append(f"<code>/renovar {s['user_id']}</code>")
+            # Mismo redondeo hacia arriba que en los avisos: si no, a quien le
+            # faltan dos días y veinte horas la lista le diría «2».
+            quedan = _dias_hasta(vence, ahora) if vence else None
+            if quedan is None:
+                plazo = "sin fecha"
+            elif quedan == 0:
+                plazo = "vence hoy"
+            elif quedan == 1:
+                plazo = "queda 1 día"
+            else:
+                plazo = f"quedan {quedan} días"
+
+            quien = html.escape(str(s["nombre"] or s["user_id"]))
+            if s["usuario"]:
+                quien += f" (@{html.escape(s['usuario'])})"
+            lineas.append(f"{quien}\n{fecha_local(s['vence_at'])} · {plazo}")
+            lineas.append(f"<code>/renovar {s['user_id']} 31</code>")
             lineas.append("")
         await responder("\n".join(lineas))
 
