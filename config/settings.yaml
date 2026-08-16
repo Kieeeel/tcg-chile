@@ -62,8 +62,9 @@ telegram:
   # final del scraping. En false vuelve a publicarse todo junto al terminar
   # una pasada de precios.
   publicar_aparte: true
-  # Cuántas ofertas por publicación. Con el flujo horario, 1 = una cada hora.
-  max_per_run: 1
+  # Cuántas ofertas por publicación. Se vacía la cola de una vez: las ofertas
+  # salen seguidas, cada una en su mensaje, en cuanto el scraping las encuentra.
+  max_per_run: 10
   # Hasta cuántas horas atrás se mira. Lo que no salga hoy sale mañana,
   # mientras no pase de aquí.
   max_age_hours: 48
@@ -94,14 +95,11 @@ telegram:
   # Manda la foto del producto con el texto debajo. Solo aplica en el modo de
   # un mensaje por oferta: en una lista junta no hay una única imagen que valga.
   include_image: true
-  # Segundos entre mensajes cuando van sueltos. No es solo por el límite de
-  # Telegram (unos 20 por minuto): espaciarlos evita que el grupo reciba diez
-  # avisos de golpe y luego cuatro horas de silencio.
-  #
-  # OJO: esto alarga la actualización. Con 10 ofertas a 300 s son 45 minutos
-  # que el trabajo de GitHub se pasa esperando, y por eso `scrape.yml` tiene
-  # 90 minutos de margen. Si subes uno de los dos números, revisa el otro.
-  delay_between_messages: 300
+  # Segundos entre mensajes cuando van sueltos. Lo mínimo seguro: Telegram
+  # corta a un grupo que recibe más de unos 20 mensajes por minuto, así que 3
+  # segundos es lo más rápido que se puede ir sin que empiece a rechazarlos.
+  # Con el tope de 10, la tanda entera sale en medio minuto.
+  delay_between_messages: 3
 
 # ---------------------------------------------------------------------------
 # Membresías del grupo de pago

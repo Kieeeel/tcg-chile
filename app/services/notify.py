@@ -34,9 +34,12 @@ class TelegramRechazo(RuntimeError):
     un «vas demasiado rápido».
     """
 
-    def __init__(self, mensaje: str, permanente: bool = True) -> None:
+    def __init__(self, mensaje: str, permanente: bool = True,
+                 esperar: Optional[float] = None) -> None:
         super().__init__(mensaje)
         self.permanente = permanente
+        # Segundos que Telegram pide esperar antes de reintentar (429).
+        self.esperar = float(esperar) if esperar else None
 
 # Qué sabe anunciar, y con qué cara.
 PLANTILLAS = {
@@ -289,13 +292,28 @@ def componer_sueltos(eventos: List[Dict[str, Any]]) -> List[str]:
 # ---------------------------------------------------------------------------
 # Envío
 # ---------------------------------------------------------------------------
-async def enviar(texto: str, imagen: Optional[str] = None) -> Dict[str, Any]:
+async def enviar(texto: str, imagen: Optional[str] = None,
+                 reintentos: int = 2) -> Dict[str, Any]:
     """Manda un mensaje. Con `imagen`, la foto va arriba y el texto debajo.
 
     Telegram descarga la foto él mismo desde la URL. Si no puede —enlace roto,
     formato raro, la tienda le niega el acceso— se reintenta como mensaje de
     texto: mejor una oferta sin foto que una oferta que no se publica.
+
+    Y si contesta «vas demasiado rápido», espera lo que él mismo pide y lo
+    vuelve a intentar. Mandando una tanda de diez seguidas eso pasa, y sin
+    esto se perdería el resto de la tanda.
     """
+    try:
+        return await _enviar_una_vez(texto, imagen)
+    except TelegramRechazo as exc:
+        if exc.permanente or reintentos <= 0:
+            raise
+        await asyncio.sleep(exc.esperar or 5)
+        return await enviar(texto, imagen, reintentos - 1)
+
+
+async def _enviar_una_vez(texto: str, imagen: Optional[str] = None) -> Dict[str, Any]:
     cfg = config()
     clave = token()
     chat = chat_id()
@@ -352,6 +370,7 @@ async def enviar(texto: str, imagen: Optional[str] = None) -> Dict[str, Any]:
         raise TelegramRechazo(
             f"Telegram rechazó el mensaje: {detalle}",
             permanente=codigo != 429,
+            esperar=(datos.get("parameters") or {}).get("retry_after"),
         )
     return datos
 
