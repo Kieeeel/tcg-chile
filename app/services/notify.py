@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import html
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -146,29 +147,48 @@ def _pesos(valor: Any) -> str:
     return "$" + f"{int(round(numero)):,}".replace(",", ".")
 
 
+# El nombre del producto ya termina en el idioma entre paréntesis
+# —«… Elite Trainer Box (Inglés)»—. En el mensaje queda mejor separado con
+# un punto medio, igual que el resto de los campos.
+_IDIOMA_AL_FINAL = re.compile(r"\s*\(([^()]{3,20})\)\s*$")
+
+TITULARES = {
+    "price_drop": "BAJÓ DE PRECIO",
+    "back_in_stock": "VOLVIÓ A HABER STOCK",
+    "new_product": "NUEVO EN LA TIENDA",
+}
+
+
+def _titulo(evento: Dict[str, Any]) -> str:
+    nombre = evento["display_name"] or evento["offer_name"] or "Producto"
+    coincidencia = _IDIOMA_AL_FINAL.search(nombre)
+    if coincidencia:
+        nombre = f"{nombre[:coincidencia.start()]} · {coincidencia.group(1)}"
+    return html.escape(nombre)
+
+
 def _linea(evento: Dict[str, Any]) -> str:
     icono = PLANTILLAS.get(evento["type"], "•")
-    nombre = html.escape(evento["display_name"] or evento["offer_name"] or "Producto")
-    tienda = html.escape(evento["store_name"] or "")
+    titular = TITULARES.get(evento["type"], "OFERTA")
     url = evento["url"] or ""
 
-    if evento["type"] == "price_drop":
-        bajada = evento.get("_bajada") or 0
-        pct = abs(evento["pct_change"] or 0)
-        detalle = (
-            f"{_pesos(evento['new_value'])} en {tienda}\n"
-            f"   antes {_pesos(evento['old_value'])} · "
-            f"bajó {_pesos(bajada)} ({pct:.0f} %)"
-        )
-    elif evento["type"] == "back_in_stock":
-        # Aquí `new_value` es el estado de stock, no un precio: el precio se
-        # toma de la oferta tal como está ahora.
-        detalle = f"{_pesos(evento['current_price'])} en {tienda} · volvió a haber stock"
-    else:
-        detalle = f"{_pesos(evento['current_price'])} en {tienda} · nuevo en la tienda"
+    filas = [f"{icono} <b>{titular}</b>", f"<b>{_titulo(evento)}</b>"]
 
-    enlace = f'\n   <a href="{html.escape(url, quote=True)}">Ver en la tienda</a>' if url else ""
-    return f"{icono} <b>{nombre}</b>\n   {detalle}{enlace}"
+    if evento["type"] == "price_drop":
+        # El precio anterior tachado: se entiende de un vistazo, sin leer.
+        filas.append(
+            f"Precio · {_pesos(evento['new_value'])} "
+            f"<s>{_pesos(evento['old_value'])}</s>"
+        )
+        filas.append(f"Ahorro · {_pesos(evento.get('_bajada') or 0)}")
+    else:
+        # En «volvió a haber stock» y «nuevo», `new_value` no es un precio:
+        # el importe se toma de la oferta tal como está ahora.
+        filas.append(f"Precio · {_pesos(evento['current_price'])}")
+
+    if url:
+        filas.append(f'<a href="{html.escape(url, quote=True)}">Ver en la tienda</a>')
+    return "\n".join(filas)
 
 
 def componer(eventos: List[Dict[str, Any]]) -> str:
