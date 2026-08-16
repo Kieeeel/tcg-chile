@@ -174,7 +174,7 @@ p { margin: 0; }
 
 .switch__track {
   position: relative; display: block;
-  width: 46px; height: 26px; border-radius: 999px;
+  width: 56px; height: 26px; border-radius: 999px;
   background: var(--surface-2); border: 1px solid var(--border-strong);
   transition: background .18s ease, border-color .18s ease;
 }
@@ -188,8 +188,8 @@ p { margin: 0; }
   stroke-linecap: round; stroke-linejoin: round;
   transition: stroke .18s ease;
 }
-.switch__ico--moon { left: 5px; }
-.switch__ico--sun { right: 5px; }
+.switch__ico--moon { left: 7px; }
+.switch__ico--sun { right: 7px; }
 
 .switch__knob {
   position: absolute; top: 2px; left: 2px; z-index: 1;
@@ -199,10 +199,12 @@ p { margin: 0; }
 }
 
 /* La bolita marca el tema puesto: a la izquierda el oscuro, a la derecha
-   el claro. Y el icono que queda debajo se enciende. */
+   el claro. Y el icono que queda debajo se enciende.
+   El desplazamiento es el ancho interior menos la bolita y sus dos huecos:
+   56 − 2 de bordes − 2 − 20 − 2 = 30. Si cambia el ancho del carril, cambia. */
 html[data-theme="dark"] .switch__knob { transform: translateX(0); }
 html[data-theme="dark"] .switch__ico--moon { stroke: var(--text); }
-html[data-theme="light"] .switch__knob { transform: translateX(20px); }
+html[data-theme="light"] .switch__knob { transform: translateX(30px); }
 html[data-theme="light"] .switch__ico--sun { stroke: var(--gold); }
 
 @media (prefers-reduced-motion: reduce) {
