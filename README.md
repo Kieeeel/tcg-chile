@@ -1,4 +1,4 @@
-# TCG Chile
+# Radar TCG Chile
 
 Comparador de precios de producto sellado de juegos de cartas coleccionables
 en tiendas chilenas.

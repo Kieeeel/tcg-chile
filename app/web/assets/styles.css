@@ -1,5 +1,5 @@
 /* =====================================================================
-   TCG Chile — hoja de estilos
+   Radar TCG Chile — hoja de estilos
    Inspiración: PCPartPicker / PriceRunner / CamelCamelCamel
    ===================================================================== */
 
@@ -28,6 +28,12 @@
   --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 8px 24px rgba(15, 23, 42, .06);
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, .08);
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Ancho de la columna de contenido. En un monitor grande, estirarse de
+     borde a borde obliga a barrer la cabeza para leer una fila y hace que
+     todo llegue de golpe. Aquí se recoge y se centra. Cambia esta línea y se
+     mueven a la vez la cabecera, la barra de juegos, las vistas y el pie. */
+  --ancho: 1200px;
 }
 
 html[data-theme="dark"] {
@@ -83,7 +89,7 @@ p { margin: 0; }
   display: flex;
   align-items: center;
   gap: 20px;
-  max-width: 1440px;
+  max-width: var(--ancho);
   margin: 0 auto;
   padding: 12px 24px;
 }
@@ -240,7 +246,7 @@ html[data-theme="light"] .switch__ico--sun { stroke: var(--gold); }
 .is-overdue strong { color: var(--warn); }
 
 /* ------------------------------------------------------------------ view */
-.view { max-width: 1440px; margin: 0 auto; padding: 24px; min-height: 70vh; }
+.view { max-width: var(--ancho); margin: 0 auto; padding: 24px; min-height: 70vh; }
 
 .page-head {
   display: flex; align-items: flex-end; justify-content: space-between;
@@ -307,7 +313,7 @@ html[data-theme="light"] .switch__ico--sun { stroke: var(--gold); }
 /* Ocupa el lugar del antiguo menú: acompaña a toda la aplicación. */
 .games {
   display: flex; align-items: center; gap: 2px; overflow-x: auto;
-  max-width: 1440px; margin: 0 auto; padding: 0 24px;
+  max-width: var(--ancho); margin: 0 auto; padding: 0 24px;
 }
 
 /* «Inicio» abre la fila, antes del primer juego, con una raya que lo separa
@@ -844,7 +850,7 @@ input.alertbox__input { width: 130px; flex: 0 0 130px; }
 
 .footer__inner {
   position: relative;
-  max-width: 1440px; margin: 0 auto; padding: 40px 24px 32px;
+  max-width: var(--ancho); margin: 0 auto; padding: 40px 24px 32px;
   display: grid; gap: 32px;
   grid-template-columns: minmax(240px, 1.6fr) repeat(3, minmax(140px, 1fr));
 }
@@ -886,7 +892,7 @@ input.alertbox__input { width: 130px; flex: 0 0 130px; }
 }
 
 .footer__bottom {
-  max-width: 1440px; margin: 0 auto; padding: 18px 24px 30px;
+  max-width: var(--ancho); margin: 0 auto; padding: 18px 24px 30px;
   border-top: 1px solid var(--border);
   text-align: center; font-size: 12px; color: var(--text-faint);
 }
@@ -925,9 +931,9 @@ input.alertbox__input { width: 130px; flex: 0 0 130px; }
 }
 
 @media (max-width: 440px) {
-  /* El nombre se queda: «TCG Chile» es corto y con la búsqueda en su propia
-     fila hay sitio de sobra. Solo se ajusta el cuerpo. */
-  .brand__name { font-size: 14px; }
+  /* El nombre se queda, pero «Radar TCG Chile» es largo para 440 px: se
+     encoge un punto más de lo que pedía el nombre corto de antes. */
+  .brand__name { font-size: 13px; }
   .brand__mark { width: 26px; height: 26px; }
   .brand__mark svg { width: 17px; height: 17px; }
   .brand { gap: 7px; }
