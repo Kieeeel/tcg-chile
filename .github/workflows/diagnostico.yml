@@ -1,0 +1,59 @@
+name: Diagnóstico de tiendas bloqueadas
+
+# Tres tiendas WooCommerce devuelven 403 desde los servidores de GitHub y
+# funcionan desde un equipo doméstico en Chile. Antes de reescribir sus
+# configuraciones conviene saber QUÉ está bloqueado: si es solo la API
+# (/wp-json/) o el sitio entero.
+#
+# Este flujo no toca la base de datos: solo pregunta y apunta el código de
+# respuesta. Se lanza a mano cuando haga falta.
+on:
+  workflow_dispatch:
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Preguntar a cada dirección
+        run: |
+          probar() {
+            codigo=$(curl -s -o /dev/null -w '%{http_code}' \
+              --max-time 25 \
+              -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' \
+              -H 'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8' \
+              -H 'Accept-Language: es-CL,es;q=0.9,en;q=0.8' \
+              "$1")
+            printf '%-6s %s\n' "$codigo" "$1"
+          }
+
+          echo "=== Blood Moon Games ==="
+          probar 'https://www.bloodmoongames.cl/'
+          probar 'https://www.bloodmoongames.cl/wp-json/wc/store/v1/products?per_page=1'
+          probar 'https://www.bloodmoongames.cl/categoria-producto/pokemon-tcg/'
+          probar 'https://www.bloodmoongames.cl/tienda/'
+          probar 'https://www.bloodmoongames.cl/product-sitemap.xml'
+
+          echo ""
+          echo "=== El Reino de los Duelos ==="
+          probar 'https://elreinodelosduelos.cl/'
+          probar 'https://elreinodelosduelos.cl/wp-json/wc/store/v1/products?per_page=1'
+          probar 'https://elreinodelosduelos.cl/categoria-producto/pokemon-tcg/'
+          probar 'https://elreinodelosduelos.cl/product-sitemap.xml'
+
+          echo ""
+          echo "=== El Panteón ==="
+          probar 'https://www.elpanteon.cl/'
+          probar 'https://www.elpanteon.cl/wp-json/wc/store/v1/products?per_page=1'
+          probar 'https://www.elpanteon.cl/tienda/'
+          probar 'https://www.elpanteon.cl/product-sitemap.xml'
+
+      - name: Qué dice el 403
+        run: |
+          echo "Cabeceras y cuerpo de una respuesta bloqueada — suele decir"
+          echo "qué complemento la rechazó (Wordfence, Cloudflare, el hosting):"
+          echo ""
+          curl -s -i --max-time 25 \
+            -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' \
+            'https://www.bloodmoongames.cl/wp-json/wc/store/v1/products?per_page=1' | head -c 1500
