@@ -2197,39 +2197,15 @@ const vistaConfiguracion = async (view) => {
 // =====================================================================
 function initTopbar() {
   const input = document.getElementById('global-search');
-  const box = document.getElementById('suggestions');
-  let timer;
 
-  input.addEventListener('input', () => {
-    clearTimeout(timer);
-    const q = input.value.trim();
-    if (q.length < 2) { box.hidden = true; return; }
-    timer = setTimeout(async () => {
-      const items = await api.get('/api/suggest', { q, limit: 8 });
-      if (!items.length) { box.hidden = true; return; }
-      box.innerHTML = items.map((i) => `<div class="suggestion" data-id="${i.id}">
-          <div><div>${esc(i.name)}</div>
-            <div class="suggestion__meta">${esc(i.set_name || '')} · ${esc(i.product_type_name || '')}</div></div>
-          <div class="right"><strong>${money(i.best_price)}</strong>
-            <div class="suggestion__meta">${num(i.stores_count)} tiendas</div></div>
-        </div>`).join('');
-      box.hidden = false;
-      box.querySelectorAll('.suggestion').forEach((el) => {
-        el.onclick = () => { box.hidden = true; input.value = ''; location.hash = `#/producto/${el.dataset.id}`; };
-      });
-    }, 220);
-  });
-
+  // El buscador va directo a los resultados, sin desplegable de sugerencias.
+  // El listado de búsqueda ya enseña foto, precio y en cuántas tiendas está,
+  // que es más de lo que cabía en una fila del desplegable.
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      box.hidden = true;
       location.hash = `#/buscar?q=${encodeURIComponent(input.value.trim())}`;
     }
-    if (e.key === 'Escape') box.hidden = true;
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search')) box.hidden = true;
+    if (e.key === 'Escape') input.blur();
   });
 
   document.getElementById('btn-top').onclick = () =>
