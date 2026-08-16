@@ -122,6 +122,15 @@ async def run_all(trigger: str = "manual", store_codes: Optional[List[str]] = No
                 "finished_at": datetime.now(timezone.utc).isoformat(),
             }
             _state["last_summary"] = summary
+
+            # Aviso al administrador si algo se rompió. Va por privado y nunca
+            # al grupo; y un fallo aquí no puede tumbar la actualización.
+            try:
+                from app.services import health
+
+                await health.avisar(summary)
+            except Exception as exc:  # noqa: BLE001
+                log("warn", "salud", f"No se pudo revisar el estado: {exc}")
             log(
                 "info",
                 "pipeline",

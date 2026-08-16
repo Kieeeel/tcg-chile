@@ -123,6 +123,26 @@ membresia:
   bienvenida: "¡Bienvenido a Ofertas Chile TCG!"
   renovacion: "Para renovar, escríbeme por privado."
 
+# ---------------------------------------------------------------------------
+# Aviso al administrador cuando algo se rompe
+#
+# Corriendo desatendido, un fallo es silencioso: las tiendas dejan de entrar,
+# los precios envejecen, y el grupo sigue pareciendo vivo porque el bot publica
+# oportunidades igualmente. Esto lo cuenta por chat privado, nunca al grupo.
+# ---------------------------------------------------------------------------
+salud:
+  enabled: true
+  # Tiendas que ya se sabe que fallan y no deben disparar el aviso. Si no,
+  # avisaría en cada pasada y acabarías silenciándolo, que es como se pierden
+  # los avisos que sí importan.
+  ignorar: [bloodmoon, elreino, wargaming]
+  # Cuántas tiendas con errores (pero con datos) hacen falta para avisar.
+  min_tiendas_con_errores: 4
+  # Porcentaje de caída del catálogo que se considera sospechoso.
+  caida_max_pct: 25
+  # Con el mismo problema, no repetir el aviso antes de estas horas.
+  repetir_cada_horas: 12
+
 scraping:
   # Peticiones simultáneas dentro de una misma tienda.
   concurrency_per_store: 4

@@ -45,11 +45,28 @@ def main() -> int:
     if args.update or args.rematch:
         from app.services import ingest, pipeline
 
-        ingest.sync_stores_from_config()
-        if args.rematch:
-            result = asyncio.run(pipeline.rematch_only())
-        else:
-            result = asyncio.run(pipeline.run_all(trigger="manual", store_codes=args.store))
+        try:
+            ingest.sync_stores_from_config()
+            if args.rematch:
+                result = asyncio.run(pipeline.rematch_only())
+            else:
+                result = asyncio.run(
+                    pipeline.run_all(trigger="manual", store_codes=args.store)
+                )
+        except Exception as exc:
+            # Si revienta entera no hay resumen que revisar, así que el aviso
+            # se manda desde aquí. Corriendo sin nadie delante, un fallo mudo
+            # son días de precios viejos sin que nadie se entere.
+            import traceback
+
+            traceback.print_exc()
+            try:
+                from app.services import health
+
+                asyncio.run(health.avisar_fallo(f"{type(exc).__name__}: {exc}"))
+            except Exception:  # noqa: BLE001
+                pass
+            return 1
         print(_summarize(result))
         return 0
 
