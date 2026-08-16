@@ -1055,10 +1055,14 @@ input.alertbox__input { width: 130px; flex: 0 0 130px; }
 
 /* El carril se desplaza a lo ancho y encaja en cada tarjeta. Las tarjetas
    miden lo mismo que en la búsqueda, así se reconoce que son lo mismo. */
+/* El hueco de arriba y abajo no es decorativo: `overflow-x: auto` obliga al
+   navegador a recortar también en vertical, y al levantarse la tarjeta 2 px
+   con su sombra de 24 px de difuminado, se cortaban por el borde. El margen
+   negativo devuelve el carril a su sitio para que el hueco no se note. */
 .shelf__track {
   display: grid; grid-auto-flow: column; grid-auto-columns: 230px;
   gap: 14px; overflow-x: auto; scroll-snap-type: x proximity;
-  padding-bottom: 4px;
+  padding-block: 16px; margin-block: -16px;
   scrollbar-width: none;
 }
 .shelf__track::-webkit-scrollbar { display: none; }
