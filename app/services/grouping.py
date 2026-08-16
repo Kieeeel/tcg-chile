@@ -702,6 +702,134 @@ def split_offer(store_product_id: int) -> Dict[str, Any]:
     return {"separated_from": len(siblings)}
 
 
+def _comprobar_identidad(product_id: int, other_id: int) -> None:
+    """Rechaza de antemano las uniones que el agrupador no va a aceptar.
+
+    Expansión, tipo de producto e idioma son identidad: dos artículos que
+    difieren en cualquiera de ellos NO son el mismo, y el agrupador los
+    mantiene separados incluso ante una decisión manual. Sin esta comprobación
+    la unión se guardaba, no surtía efecto, y el usuario se quedaba sin saber
+    por qué.
+
+    El idioma solo cuenta si `matching.language_is_identity` está activo, que
+    es lo normal: un ETB en español y uno en inglés valen distinto.
+    """
+    with get_connection() as conn:
+        filas = {
+            f["id"]: dict(f) for f in conn.execute(
+                """SELECT id, display_name, set_code, set_name, product_type,
+                          product_type_name, language
+                   FROM products WHERE id IN (?, ?)""",
+                (product_id, other_id),
+            ).fetchall()
+        }
+    a, b = filas.get(product_id), filas.get(other_id)
+    if not a or not b:
+        raise ValueError("Alguno de los dos productos ya no existe")
+
+    campos = [("set_code", "la expansión", "set_name"),
+              ("product_type", "el tipo de producto", "product_type_name")]
+    if settings.get("matching.language_is_identity", True):
+        campos.append(("language", "el idioma", "language"))
+
+    for campo, etiqueta, mostrar in campos:
+        if a[campo] and b[campo] and a[campo] != b[campo]:
+            izq = attrs_module.language_name(a[campo]) if campo == "language" else (a.get(mostrar) or a[campo])
+            der = attrs_module.language_name(b[campo]) if campo == "language" else (b.get(mostrar) or b[campo])
+            raise ValueError(
+                f"No se pueden unir: no coincide {etiqueta} ({izq} contra {der}). "
+                f"Son artículos distintos y el agrupador los mantendría separados igualmente. "
+                f"Si de verdad es el mismo, corrige antes ese dato en Administración → Productos."
+            )
+
+
+def merge_products(product_id: int, other_id: int) -> Dict[str, Any]:
+    """Une dos productos maestros en uno solo, para siempre.
+
+    Por dentro no existe «unir productos»: lo que se guarda es que una oferta
+    de uno y una del otro son el mismo artículo. El agrupador ya mantiene
+    juntas las ofertas de cada producto, así que enlazar una de cada lado
+    arrastra a las demás. Y como se guarda contra claves estables, la unión
+    sobrevive a los siguientes scrapings.
+    """
+    if product_id == other_id:
+        raise ValueError("Es el mismo producto")
+
+    _comprobar_identidad(product_id, other_id)
+
+    with get_connection() as conn:
+        def ofertas(pid: int) -> List[Dict[str, Any]]:
+            return [
+                dict(r) for r in conn.execute(
+                    """SELECT sp.id, sp.name, s.code AS store_code, sp.external_id, sp.url
+                       FROM store_products sp JOIN stores s ON s.id = sp.store_id
+                       WHERE sp.product_id = ? AND sp.is_active = 1
+                       ORDER BY sp.id""",
+                    (pid,),
+                ).fetchall()
+            ]
+
+        aqui, alla = ofertas(product_id), ofertas(other_id)
+        nombres = {
+            r["id"]: r["display_name"] for r in conn.execute(
+                "SELECT id, display_name FROM products WHERE id IN (?, ?)",
+                (product_id, other_id),
+            ).fetchall()
+        }
+
+    if not aqui or not alla:
+        raise ValueError("Alguno de los dos productos no tiene ofertas activas")
+
+    claves_aqui = {
+        stable_key(o["store_code"], o["external_id"], o["url"]) for o in aqui
+    }
+    claves_alla = {
+        stable_key(o["store_code"], o["external_id"], o["url"]) for o in alla
+    }
+
+    # Si antes se marcaron como distintos, esa decisión gana sobre la unión y
+    # el «unir» no haría nada. Al pedir explícitamente juntarlos, se retira.
+    olvidadas = 0
+    with transaction() as conn:
+        for a in claves_aqui:
+            for b in claves_alla:
+                x, y = sorted((a, b))
+                cur = conn.execute(
+                    "DELETE FROM manual_matches "
+                    "WHERE a_key = ? AND b_key = ? AND decision = 'different'",
+                    (x, y),
+                )
+                olvidadas += cur.rowcount or 0
+
+    save_manual_decision(aqui[0]["id"], alla[0]["id"], "same", "Unidos manualmente")
+    matching = rebuild_groups()
+
+    # Comprobar que de verdad quedaron juntos: una separación manual entre
+    # otras ofertas del grupo podría estar impidiéndolo.
+    with get_connection() as conn:
+        fila = conn.execute(
+            "SELECT product_id FROM store_products WHERE id = ?", (alla[0]["id"],)
+        ).fetchone()
+        destino = fila["product_id"] if fila else None
+        final = conn.execute(
+            "SELECT product_id FROM store_products WHERE id = ?", (aqui[0]["id"],)
+        ).fetchone()
+        unidos = bool(destino and final and destino == final["product_id"])
+
+    log("info", "matching",
+        f"Unidos «{nombres.get(product_id, product_id)}» y "
+        f"«{nombres.get(other_id, other_id)}»"
+        + (f" (se olvidaron {olvidadas} separaciones)" if olvidadas else ""))
+
+    return {
+        "merged": unidos,
+        "product_id": destino,
+        "offers": len(aqui) + len(alla),
+        "forgotten_separations": olvidadas,
+        "matching": matching,
+    }
+
+
 def _manual_same_components() -> Dict[str, str]:
     """Componentes conexas de las decisiones «es el mismo producto».
 

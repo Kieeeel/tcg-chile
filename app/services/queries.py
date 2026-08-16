@@ -9,7 +9,7 @@ from app.core import attributes as attrs_module
 from app.core.normalize import normalize_name
 from app.core.similarity import search_score
 from app.core.units import savings, unit_price
-from app.db.database import get_connection, query, transaction
+from app.db.database import get_connection, query, query_one, transaction
 
 STOCK_LABELS = {
     "in_stock": "En stock",
@@ -948,6 +948,60 @@ def suggest(q: str, limit: int = 8) -> List[Dict[str, Any]]:
         }
         for item in result["items"]
     ]
+
+
+def merge_candidates(product_id: int, q: str = "", limit: int = 12) -> List[Dict[str, Any]]:
+    """Con qué otros productos tendría sentido unir este.
+
+    Sin texto, propone los más parecidos: mismo juego, misma expansión y mismo
+    tipo, que es donde se esconden los duplicados de verdad —el mismo artículo
+    que dos tiendas escribieron distinto—. Con texto, busca por nombre, para
+    cuando sabes exactamente cuál es el gemelo.
+    """
+    base = query_one(
+        """SELECT id, display_name, game, set_code, product_type, language
+           FROM products WHERE id = ?""",
+        (product_id,),
+    )
+    if base is None:
+        return []
+    base = dict(base)
+
+    if q and len(q.strip()) >= 2:
+        encontrados = search_products(q.strip(), page_size=limit + 1)["items"]
+    else:
+        donde = ["p.id != ?"]
+        params: List[Any] = [product_id]
+        for columna in ("game", "set_code", "product_type"):
+            if base.get(columna):
+                donde.append(f"p.{columna} = ?")
+                params.append(base[columna])
+        params.append(limit + 1)
+        filas = query(
+            f"""SELECT p.*, 0 AS is_favorite,
+                       NULL AS best_store_name, NULL AS best_available_store_name
+                FROM products p
+                WHERE {' AND '.join(donde)}
+                ORDER BY p.display_name
+                LIMIT ?""",
+            params,
+        )
+        encontrados = [_product_summary(dict(f)) for f in filas]
+
+    return [
+        {
+            "id": item["id"],
+            "name": item["name"],
+            "set_name": item.get("set_name"),
+            "product_type_name": item.get("product_type_name"),
+            "language_name": item.get("language_name"),
+            "image_url": item.get("image_url"),
+            "best_price": item.get("best_price"),
+            "stores_count": item.get("stores_count"),
+        }
+        for item in encontrados
+        if item["id"] != product_id
+    ][:limit]
 
 
 # ---------------------------------------------------------------------------

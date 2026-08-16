@@ -146,6 +146,25 @@ async def rejoin_offer(store_product_id: int):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/products/{product_id}/merge")
+async def merge_products(product_id: int, other_id: int = Body(..., embed=True)):
+    """Une este producto con otro: pasan a ser uno solo, para siempre."""
+    try:
+        return grouping.merge_products(product_id, other_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/products/{product_id}/merge-candidates")
+def merge_candidates(product_id: int, q: str = "", limit: int = 12):
+    """Productos con los que se podría unir este, para el buscador del diálogo.
+
+    Sin texto propone los parecidos; con texto busca por nombre. En ambos
+    casos se excluye el propio producto.
+    """
+    return queries.merge_candidates(product_id, q=q, limit=limit)
+
+
 @router.get("/manual-attributes")
 def manual_attributes(limit: int = 200):
     return grouping.manual_attributes(limit)

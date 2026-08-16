@@ -856,6 +856,7 @@ route('producto', async (view, [id]) => {
       <div><a class="btn btn--ghost btn--sm" href="#/buscar">‹ Volver a la búsqueda</a></div>
       <div>
         <button class="btn" id="btn-fav">${p.is_favorite ? '❤️ En favoritos' : '🤍 Añadir a favoritos'}</button>
+        <button class="btn" id="btn-unir" title="Unir este producto con otro que sea el mismo artículo">🔗 Unir con otro</button>
         <a class="btn" href="/api/export?format=xlsx&product_id=${p.id}">Exportar</a>
       </div>
     </div>
@@ -959,6 +960,8 @@ route('producto', async (view, [id]) => {
     e.target.textContent = now ? '❤️ En favoritos' : '🤍 Añadir a favoritos';
     toast(now ? 'Añadido a favoritos' : 'Quitado de favoritos');
   };
+
+  document.getElementById('btn-unir').onclick = () => dialogoUnir(p);
 
   document.getElementById('btn-alert').onclick = async () => {
     const value = Number(document.getElementById('alert-price').value);
@@ -1128,6 +1131,107 @@ function avisoVariante(datos) {
   dialogo.querySelector('#modal-go').onclick = () => cerrar(true);
   dialogo.querySelector('#modal-cancel').onclick = () => cerrar(false);
   dialogo.addEventListener('cancel', () => { dialogo.remove(); });
+}
+
+// ---------------------------------------------------------------------
+// Unir dos productos que en realidad son el mismo
+//
+// Pasa cuando dos tiendas escriben tan distinto el mismo artículo que el
+// agrupador automático no se atreve a juntarlos. La decisión se guarda contra
+// la clave estable de cada oferta, así que sobrevive a los scrapings.
+// ---------------------------------------------------------------------
+function dialogoUnir(producto) {
+  const dialogo = document.createElement('dialog');
+  dialogo.className = 'modal modal--wide';
+  dialogo.innerHTML = `
+    <h3 class="modal__title">Unir con otro producto</h3>
+    <p class="modal__text">
+      Los dos pasarán a ser uno solo: se juntan sus tiendas y sus precios.
+      Se recuerda para siempre, también después de cada actualización.
+    </p>
+    <div class="merge__base">
+      <span class="muted">Este producto</span>
+      <strong>${esc(producto.name)}</strong>
+    </div>
+    <input type="search" class="merge__search" id="merge-q"
+           placeholder="Buscar por nombre, o deja vacío para ver los parecidos">
+    <div class="merge__list" id="merge-list"><p class="muted">Buscando…</p></div>
+    <p class="merge__msg" id="merge-msg" hidden></p>
+    <div class="modal__actions">
+      <button class="btn" id="merge-cancel">Cancelar</button>
+    </div>`;
+  document.body.appendChild(dialogo);
+  dialogo.showModal();
+
+  const lista = dialogo.querySelector('#merge-list');
+  const buscador = dialogo.querySelector('#merge-q');
+  const mensaje = dialogo.querySelector('#merge-msg');
+
+  const cerrar = () => { dialogo.close(); dialogo.remove(); };
+  dialogo.querySelector('#merge-cancel').onclick = cerrar;
+  dialogo.addEventListener('cancel', () => dialogo.remove());
+
+  const pintar = (candidatos) => {
+    if (!candidatos.length) {
+      lista.innerHTML = '<p class="muted">Ningún producto coincide.</p>';
+      return;
+    }
+    lista.innerHTML = candidatos.map((c) => `
+      <button class="merge__item" data-id="${c.id}">
+        <span class="merge__thumb">${c.image_url ? `<img src="${esc(c.image_url)}" alt="">` : ''}</span>
+        <span class="merge__info">
+          <strong>${esc(c.name)}</strong>
+          <span class="muted">${esc(c.set_name || '')}${c.stores_count ? ` · ${num(c.stores_count)} tienda(s)` : ''}</span>
+        </span>
+        <span class="merge__price">${c.best_price ? money(c.best_price) : ''}</span>
+      </button>`).join('');
+
+    lista.querySelectorAll('.merge__item').forEach((btn) => {
+      btn.onclick = async () => {
+        const otro = candidatos.find((c) => String(c.id) === btn.dataset.id);
+        if (!confirm(`¿Unir «${producto.name}» con «${otro.name}»?\n\nSe convertirán en un solo producto.`)) return;
+
+        mensaje.hidden = true;
+        lista.querySelectorAll('.merge__item').forEach((b) => { b.disabled = true; });
+        try {
+          const r = await api.post(`/api/products/${producto.id}/merge`, { other_id: otro.id });
+          if (!r.merged) throw new Error(
+            'No se pudieron unir. Alguna separación manual entre sus ofertas lo impide.');
+
+          cerrar();
+          toast(r.forgotten_separations
+            ? `Productos unidos (se olvidaron ${r.forgotten_separations} separación(es) que habías hecho antes)`
+            : 'Productos unidos');
+          // El maestro resultante puede ser cualquiera de los dos.
+          if (String(r.product_id) === String(producto.id)) location.reload();
+          else location.hash = `#/producto/${r.product_id}`;
+        } catch (err) {
+          // En el diálogo y no en un aviso flotante: el motivo del rechazo es
+          // largo y explica qué hacer, así que hay que poder leerlo con calma.
+          mensaje.textContent = err.message;
+          mensaje.hidden = false;
+          lista.querySelectorAll('.merge__item').forEach((b) => { b.disabled = false; });
+        }
+      };
+    });
+  };
+
+  const cargar = async () => {
+    lista.innerHTML = '<p class="muted">Buscando…</p>';
+    try {
+      pintar(await api.get(`/api/products/${producto.id}/merge-candidates`,
+                           { q: buscador.value.trim() }));
+    } catch (err) {
+      lista.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
+    }
+  };
+
+  let temporizador = null;
+  buscador.oninput = () => {
+    clearTimeout(temporizador);
+    temporizador = setTimeout(cargar, 250);
+  };
+  cargar();
 }
 
 function bindVariantWarnings(raiz) {
