@@ -100,6 +100,15 @@ async def run_all(trigger: str = "manual", store_codes: Optional[List[str]] = No
             except Exception as exc:  # noqa: BLE001
                 log("warn", "telegram", f"No se pudo publicar: {exc}")
 
+            # Altas, avisos y expulsiones del grupo de pago. Igual que arriba:
+            # un fallo aquí no puede tumbar una actualización de precios.
+            try:
+                from app.services import membership
+
+                await membership.ejecutar()
+            except Exception as exc:  # noqa: BLE001
+                log("warn", "membresia", f"No se pudo revisar: {exc}")
+
             duration_ms = int((time.monotonic() - started) * 1000)
             summary = {
                 "trigger": trigger,

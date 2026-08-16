@@ -417,3 +417,26 @@ CREATE TABLE IF NOT EXISTS telegram_sent (
     event_id  INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
     sent_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ---------------------------------------------------------------------------
+-- Socios del grupo de pago
+--
+-- El cobro ocurre fuera del sistema: alguien transfiere, el administrador
+-- aprueba su entrada en Telegram, y aquí solo se lleva la cuenta de hasta
+-- cuándo tiene acceso. La clave es el identificador de Telegram, que no
+-- cambia aunque la persona se cambie el nombre o el alias.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS miembros (
+    user_id     INTEGER PRIMARY KEY,
+    nombre      TEXT,
+    usuario     TEXT,                          -- @alias, solo para leerlo
+    alta_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    vence_at    TEXT NOT NULL,
+    estado      TEXT NOT NULL DEFAULT 'activo',  -- activo | expulsado | baja
+    -- Último aviso enviado, en días de antelación: evita repetir el mismo
+    -- recordatorio en cada pasada del cron.
+    ultimo_aviso INTEGER,
+    nota        TEXT,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_miembros_vence ON miembros(estado, vence_at);

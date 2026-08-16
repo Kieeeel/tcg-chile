@@ -78,6 +78,27 @@ telegram:
   # 90 minutos de margen. Si subes uno de los dos números, revisa el otro.
   delay_between_messages: 300
 
+# ---------------------------------------------------------------------------
+# Membresías del grupo de pago
+#
+# El cobro NO pasa por aquí. Tú recibes la transferencia y apruebas la entrada
+# en Telegram; esto solo lleva la cuenta del plazo y lo hace cumplir.
+#
+# Antes de encenderlo, en Telegram:
+#   1. El bot tiene que ser ADMINISTRADOR del grupo, con permiso de expulsar.
+#   2. El enlace de invitación tiene que exigir aprobación, o cualquiera que
+#      lo reciba entra sin pagar.
+#   3. Tu identificador va en la variable de entorno TELEGRAM_ADMIN_ID; es
+#      quien puede dar órdenes al bot, y solo por chat privado.
+# ---------------------------------------------------------------------------
+membresia:
+  enabled: false
+  dias: 31
+  # Cuántos días antes se avisa. Se manda uno por cada escalón, no repetido.
+  avisos_dias: [3, 1]
+  bienvenida: "¡Bienvenido a Ofertas Chile TCG!"
+  renovacion: "Para renovar, escríbeme por privado."
+
 scraping:
   # Peticiones simultáneas dentro de una misma tienda.
   concurrency_per_store: 4

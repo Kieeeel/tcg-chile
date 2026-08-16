@@ -432,3 +432,24 @@ CREATE TABLE IF NOT EXISTS telegram_sent (
     event_id  INTEGER PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
     sent_at   TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS'))
 );
+
+-- ---------------------------------------------------------------------------
+-- Socios del grupo de pago
+--
+-- El cobro ocurre fuera del sistema: alguien transfiere, el administrador
+-- aprueba su entrada en Telegram, y aquí solo se lleva la cuenta de hasta
+-- cuándo tiene acceso. `user_id` es BIGINT porque los identificadores de
+-- Telegram ya no caben en 32 bits.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS miembros (
+    user_id     BIGINT PRIMARY KEY,
+    nombre      TEXT,
+    usuario     TEXT,
+    alta_at     TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')),
+    vence_at    TEXT NOT NULL,
+    estado      TEXT NOT NULL DEFAULT 'activo',  -- activo | expulsado | baja
+    ultimo_aviso INTEGER,
+    nota        TEXT,
+    updated_at  TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_miembros_vence ON miembros(estado, vence_at);
