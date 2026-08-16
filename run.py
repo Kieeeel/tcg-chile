@@ -35,11 +35,22 @@ def main() -> int:
         # Publicar va por su cuenta, cada hora, para que las ofertas salgan a
         # goteo y no a ráfagas de diez cada vez que termina un scraping.
         # También atiende las membresías, que tampoco dependen de los precios.
+        from app.db.database import log
         from app.services import membership, notify
 
-        resultado = asyncio.run(notify.publicar())
-        asyncio.run(membership.ejecutar())
-        print(f"\nTelegram: {resultado}\n")
+        # Cada tarea por su cuenta: si Telegram rechaza una oferta, las órdenes
+        # de administración y los vencimientos tienen que atenderse igual. Con
+        # las dos en la misma línea, un fallo al publicar dejaba el grupo de
+        # socios sin revisar durante horas sin que se notara.
+        salida = {}
+        for nombre, tarea in (("publicar", notify.publicar), ("membresia", membership.ejecutar)):
+            try:
+                salida[nombre] = asyncio.run(tarea())
+            except Exception as exc:  # noqa: BLE001
+                salida[nombre] = f"falló: {exc}"
+                log("warn", nombre, f"No se pudo completar: {exc}")
+
+        print(f"\nTelegram: {salida}\n")
         return 0
 
     if args.update or args.rematch:

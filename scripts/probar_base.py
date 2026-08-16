@@ -86,6 +86,10 @@ def pruebas(escribir: bool):
         ("product_detail", con_producto(lambda p: queries.product_detail(p))),
         ("price_history", con_producto(lambda p: queries.price_history(p, days=30))),
         ("comments", con_producto(lambda p: queries.comments(p))),
+        ("merge_candidates (parecidos)",
+         con_producto(lambda p: queries.merge_candidates(p, limit=5))),
+        ("merge_candidates (búsqueda)",
+         con_producto(lambda p: queries.merge_candidates(p, q="pokemon", limit=5))),
     ]
 
     if escribir:
@@ -104,9 +108,27 @@ def pruebas(escribir: bool):
         from app.services import notify
         return notify.eventos_pendientes(limite=5)
 
+    def telegram_destacado():
+        from app.services import notify
+        # Devuelve None si no hay ninguna oportunidad; lo que se prueba aquí
+        # es que la consulta corra, no que encuentre algo.
+        return notify.destacado() or "sin oportunidades ahora mismo — omitida"
+
+    def telegram_ultimo_envio():
+        from app.services import notify
+        notify._horas_desde_ultimo_envio()
+        return True
+
+    def membresia_socios():
+        from app.services import membership
+        return membership.socios(None)
+
     lista += [
         ("scheduler.last_update", scheduler_info),
         ("notify.eventos_pendientes", telegram_pendientes),
+        ("notify.destacado", telegram_destacado),
+        ("notify.horas desde el último envío", telegram_ultimo_envio),
+        ("membresia.socios", membresia_socios),
     ]
     return lista
 

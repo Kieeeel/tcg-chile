@@ -2241,7 +2241,13 @@ let statusTimer = null;
 async function pollStatus() {
   clearTimeout(statusTimer);
   const info = await api.get('/api/status').catch(() => null);
-  if (!info) return;
+  if (!info) {
+    // Antes se volvía sin más, y el sondeo moría para siempre: bastaba un
+    // reinicio del servidor para que el reloj de «Última / Próxima» se
+    // quedara congelado hasta recargar. Se reintenta, más despacio.
+    statusTimer = setTimeout(pollStatus, 15000);
+    return;
+  }
 
   // Estos elementos solo existen en la página de Tiendas: en el resto se
   // sigue consultando el estado (para el aviso al terminar) sin pintar nada.
