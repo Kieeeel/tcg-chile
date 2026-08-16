@@ -198,7 +198,16 @@ def _connect() -> Any:
 
         # `autocommit=False`: el proyecto controla la transacción con
         # `transaction()`, igual que en SQLite.
-        conn = psycopg.connect(database_url(), row_factory=dict_row, autocommit=False)
+        #
+        # `prepare_threshold=None` desactiva las sentencias preparadas. psycopg
+        # guarda en el servidor las consultas que se repiten, bajo un nombre
+        # como «_pg3_0», para no reenviarlas enteras. Pero el pooler de Supabase
+        # reparte cada transacción por una conexión distinta del montón, así que
+        # ese nombre acaba chocando con el que dejó otra: «prepared statement
+        # _pg3_0 already exists». Con el pooler hay que renunciar a esa mejora.
+        conn = psycopg.connect(
+            database_url(), row_factory=dict_row, autocommit=False, prepare_threshold=None
+        )
         return _PgConnection(conn)
 
     path = _db_path()
