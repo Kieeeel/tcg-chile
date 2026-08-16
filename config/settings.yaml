@@ -45,9 +45,9 @@ scheduler:
 # ---------------------------------------------------------------------------
 telegram:
   enabled: true
-  # En simulación: el mensaje se escribe en el registro en vez de enviarse.
-  # Poner en false cuando el formato convenza.
-  dry_run: true
+  # false: publica de verdad. En true solo escribe el mensaje en el registro,
+  # que es como conviene dejarlo mientras se retoca el formato.
+  dry_run: false
   # Vacío a propósito: el grupo se pasa en TELEGRAM_CHAT_ID, para no dejar el
   # número escrito en un repositorio público. Aquí valdría «@mi_canal» o el id.
   chat_id: ""
@@ -56,7 +56,7 @@ telegram:
   publish: [price_drop, back_in_stock]
   # Filtros para que el grupo no se llene de ruido. Una bajada de $200 en un
   # producto de $80.000 no es noticia.
-  min_drop_pct: 8
+  min_drop_pct: 5
   min_drop_amount: 2000
   # Tope por actualización, y cuántas horas atrás se mira.
   max_per_run: 10
