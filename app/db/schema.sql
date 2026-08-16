@@ -419,6 +419,18 @@ CREATE TABLE IF NOT EXISTS telegram_sent (
 );
 
 -- ---------------------------------------------------------------------------
+-- Productos ya destacados
+--
+-- Cuando no hay ninguna bajada que contar, el bot publica igualmente una buena
+-- oportunidad para que el grupo no se quede mudo días entéros. Aquí se apunta
+-- cuál, para no repetir el mismo producto una y otra vez.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS telegram_destacados (
+    product_id  INTEGER PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+    sent_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ---------------------------------------------------------------------------
 -- Socios del grupo de pago
 --
 -- El cobro ocurre fuera del sistema: alguien transfiere, el administrador

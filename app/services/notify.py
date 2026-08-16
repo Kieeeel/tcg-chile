@@ -13,13 +13,14 @@ from __future__ import annotations
 import asyncio
 import html
 import os
+import random
 import re
 from typing import Any, Dict, List, Optional
 
 import httpx
 
 from app import settings
-from app.db.database import get_connection, log, transaction
+from app.db.database import get_connection, log, query, transaction
 
 API = "https://api.telegram.org"
 
@@ -199,6 +200,66 @@ def componer(eventos: List[Dict[str, Any]]) -> str:
     return f"{cabecera}\n\n{cuerpo}"
 
 
+def _linea_destacado(oportunidad: Dict[str, Any]) -> str:
+    """Mismo molde que una bajada, pero comparando tiendas en vez de fechas.
+
+    Aquí el precio tachado no es «lo que costaba antes» sino la mediana de lo
+    que piden las demás tiendas: lo que pagarías sin comparar.
+    """
+    nombre = oportunidad["name"] or "Producto"
+    idioma = oportunidad.get("language_name")
+    if idioma and f"({idioma})" in nombre:
+        nombre = nombre.replace(f"({idioma})", "").strip() + f" · {idioma}"
+
+    url = oportunidad.get("best_url") or ""
+    filas = [
+        "💡 <b>OPORTUNIDAD</b>",
+        f"<b>{html.escape(nombre)}</b>",
+        f"Precio · {_pesos(oportunidad['best_price'])} "
+        f"(<s>{_pesos(oportunidad['median_price'])}</s> "
+        f"/ −{oportunidad['savings_pct']:.0f} %)",
+        f"El más barato de {oportunidad['stores_count']} tiendas · "
+        f"{html.escape(oportunidad['best_store'] or '')}",
+    ]
+    if url:
+        filas.append(f'<a href="{html.escape(url, quote=True)}">Ver en la tienda</a>')
+    return "\n".join(filas)
+
+
+def destacado() -> Optional[Dict[str, Any]]:
+    """Una buena oportunidad al azar, para los días sin bajadas.
+
+    Se elige al azar entre las mejores y no entre la primera, porque si no
+    saldría siempre el mismo producto: las diferencias de precio entre tiendas
+    cambian mucho más despacio que las ofertas.
+    """
+    from app.services import queries
+
+    cfg = config()
+    minimo = float(cfg.get("destacado_min_pct", 5) or 0)
+    dias = int(cfg.get("destacado_no_repetir_dias", 14) or 0)
+
+    candidatos = [
+        o for o in queries.opportunities(limit=40, sort="percent")
+        if o["savings_pct"] >= minimo
+    ]
+    if not candidatos:
+        return None
+
+    if dias > 0:
+        recientes = {
+            fila["product_id"] for fila in query(
+                f"SELECT product_id FROM telegram_destacados "
+                f"WHERE sent_at >= datetime('now', '-{dias} days')"
+            )
+        }
+        frescos = [o for o in candidatos if o["id"] not in recientes]
+        # Si ya se publicaron todos, se vuelve a empezar antes que callar.
+        candidatos = frescos or candidatos
+
+    return random.choice(candidatos)
+
+
 def componer_sueltos(eventos: List[Dict[str, Any]]) -> List[str]:
     """Un mensaje por oferta, para que cada una se pueda reenviar y comentar.
 
@@ -290,11 +351,11 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
         # si el aviso estaba apagado, mal configurado, o simplemente callado
         # porque no había nada que contar.
         log("info", "telegram",
-            f"Nada que publicar — no hay {' ni '.join(cfg.get('publish') or ['eventos'])} "
+            f"No hay {' ni '.join(cfg.get('publish') or ['eventos'])} "
             f"de las últimas {cfg.get('max_age_hours', 48)} h que superen los filtros "
             f"(bajada mínima {cfg.get('min_drop_pct', 0)}% o ${cfg.get('min_drop_amount', 0):,.0f})"
             .replace(",", "."))
-        return {"sent": 0, "reason": "nada nuevo que contar"}
+        return await _publicar_destacado(forzar_envio)
 
     sueltos = bool(cfg.get("one_message_per_offer", False))
     mensajes = componer_sueltos(eventos) if sueltos else [componer(eventos)]
@@ -326,6 +387,44 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
         f"{len(eventos)} ofertas publicadas en {chat_id()} "
         f"({len(mensajes)} mensaje(s))")
     return {"sent": len(eventos), "dry_run": False, "preview": mensajes}
+
+
+async def _publicar_destacado(forzar_envio: bool) -> Dict[str, Any]:
+    """Plan B para los días sin bajadas: una buena oportunidad del comparador.
+
+    Un grupo que pasa tres días mudo se abandona. Y esto no es relleno: es
+    justo lo que hace la herramienta —ver dónde está más barato— contado sin
+    que nadie tenga que entrar a mirar.
+    """
+    cfg = config()
+    if not cfg.get("destacado_si_no_hay", True):
+        log("info", "telegram", "Nada que publicar")
+        return {"sent": 0, "reason": "nada nuevo que contar"}
+
+    oportunidad = destacado()
+    if not oportunidad:
+        log("info", "telegram",
+            "Nada que publicar, y tampoco hay ninguna oportunidad que supere "
+            f"el {cfg.get('destacado_min_pct', 5)}% de diferencia entre tiendas")
+        return {"sent": 0, "reason": "nada nuevo que contar"}
+
+    mensaje = _linea_destacado(oportunidad)
+    if bool(cfg.get("dry_run", True)) and not forzar_envio:
+        log("info", "telegram", f"[simulación] oportunidad destacada:\n{mensaje}")
+        return {"sent": 0, "dry_run": True, "preview": [mensaje], "destacado": True}
+
+    await enviar(mensaje, oportunidad.get("image_url") if cfg.get("include_image", True) else None)
+    with transaction() as conn:
+        conn.execute(
+            """INSERT INTO telegram_destacados (product_id) VALUES (?)
+               ON CONFLICT(product_id) DO UPDATE SET sent_at = datetime('now')""",
+            (oportunidad["id"],),
+        )
+    log("info", "telegram",
+        f"Sin bajadas: se destacó «{oportunidad['name']}» "
+        f"({oportunidad['savings_pct']:.0f}% bajo la mediana de "
+        f"{oportunidad['stores_count']} tiendas)")
+    return {"sent": 1, "destacado": True, "preview": [mensaje]}
 
 
 def _marcar_enviados(ids: List[int]) -> None:

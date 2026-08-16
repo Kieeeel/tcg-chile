@@ -62,6 +62,12 @@ telegram:
   max_per_run: 10
   max_age_hours: 48
   hide_preview: true
+  # Si no hay ninguna bajada que contar, publicar igualmente una oportunidad
+  # del comparador: un producto que está bastante más barato en una tienda que
+  # en las demás. Evita que el grupo pase días mudo.
+  destacado_si_no_hay: true
+  destacado_min_pct: 5          # diferencia mínima contra la mediana
+  destacado_no_repetir_dias: 14  # no repetir el mismo producto en 2 semanas
   # false -> un mensaje con la lista de todas las ofertas.
   # true  -> un mensaje por oferta, más fáciles de reenviar y comentar sueltos,
   #          pero llenan más el grupo. Con `max_per_run: 8` son 8 mensajes.
