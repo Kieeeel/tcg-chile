@@ -7,7 +7,14 @@ name: Actualizar precios
 # basta con un commit —o pulsar «Run workflow»— para reactivarlos.
 on:
   schedule:
-    - cron: "17 */4 * * *"   # a y 17 para no coincidir con el pico en punto
+    # Los horarios de GitHub son SIEMPRE en UTC, no admiten zona horaria.
+    # Chile va cuatro horas por detrás en invierno, así que estas cinco horas
+    # UTC caen en Chile a las 20:00, 00:00, 08:00, 12:00 y 16:00.
+    #
+    # De septiembre a abril, con el horario de verano chileno, se corren una
+    # hora: 21:00, 01:00, 09:00, 13:00 y 17:00. GitHub no sabe de cambios de
+    # hora; si molesta, se ajustan los números a mano dos veces al año.
+    - cron: "0 0,4,12,16,20 * * *"
   workflow_dispatch:          # y a mano cuando quieras
 
 concurrency:
