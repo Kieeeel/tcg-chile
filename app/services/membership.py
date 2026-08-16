@@ -303,6 +303,11 @@ async def _procesar_cambio(cambio: Dict[str, Any]) -> bool:
     user_id = persona.get("id")
     if not user_id or persona.get("is_bot"):
         return False
+    if user_id == admin_id():
+        # El dueño del grupo no es un socio. Si se le diera plazo, al vencer
+        # el bot intentaría expulsarlo, Telegram lo impediría —a un creador no
+        # se le puede echar— y quedaría marcado como expulsado sin estarlo.
+        return False
 
     if nuevo in ("member", "administrator", "creator"):
         existente = socio(user_id)
@@ -429,6 +434,8 @@ async def revisar_vencimientos() -> Dict[str, Any]:
     avisados = expulsados = 0
 
     for s in socios("activo"):
+        if s["user_id"] == admin_id():
+            continue  # al dueño del grupo no se le echa
         vence = _leer_fecha(s["vence_at"])
         if vence is None:
             continue
