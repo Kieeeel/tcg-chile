@@ -92,7 +92,7 @@ telegram:
 #      quien puede dar órdenes al bot, y solo por chat privado.
 # ---------------------------------------------------------------------------
 membresia:
-  enabled: false
+  enabled: true
   dias: 31
   # Cuántos días antes se avisa. Se manda uno por cada escalón, no repetido.
   avisos_dias: [3, 1]
