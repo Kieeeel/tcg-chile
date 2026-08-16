@@ -206,7 +206,20 @@ function elegirJuego(codigo, destino) {
   localStorage.setItem('game', codigo);
   // Set y tipo se reinician: son catálogos distintos en cada juego.
   state.filters = { ...state.filters, game: codigo, set_code: '', product_type: '', page: 1 };
-  location.hash = `#/${destino}?game=${encodeURIComponent(codigo)}`;
+  irA(`#/${destino}?game=${encodeURIComponent(codigo)}`);
+}
+
+/**
+ * Va a una dirección, y si ya estabas ahí, repinta igualmente.
+ *
+ * Cambiar `location.hash` por el mismo valor que ya tenía no dispara nada:
+ * el navegador entiende que no te has movido. Pero pulsar la pestaña en la
+ * que estás es la forma natural de pedir «refresca esto», así que se llama
+ * al pintado a mano.
+ */
+function irA(destino) {
+  if (location.hash === destino) render();
+  else location.hash = destino;
 }
 
 /**
@@ -319,6 +332,17 @@ async function render() {
 }
 
 window.addEventListener('hashchange', render);
+
+// Pulsar el enlace de la sección en la que ya estás: el navegador no hace
+// nada, porque la dirección no cambia. Pero eso es justo cómo se pide
+// «recarga esto», así que se repinta a mano. Vale para las pestañas de
+// arriba, para «Inicio» y para cualquier enlace interno.
+document.addEventListener('click', (evento) => {
+  const enlace = evento.target.closest('a[href^="#/"]');
+  if (!enlace || enlace.getAttribute('href') !== location.hash) return;
+  evento.preventDefault();
+  render();
+});
 
 // =====================================================================
 // Buscar / comparar
