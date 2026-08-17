@@ -419,6 +419,26 @@ CREATE TABLE IF NOT EXISTS telegram_sent (
 );
 
 -- ---------------------------------------------------------------------------
+-- Ofertas descartadas a mano
+--
+-- Borrar un producto no basta: el siguiente scraping vuelve a encontrarlo en
+-- la tienda y lo da de alta otra vez. Lo que hace falta es recordar la
+-- decisión contra la misma clave estable que usan el resto de correcciones
+-- manuales, y saltarse esas fichas al recoger.
+--
+-- Se guarda la oferta, no el producto maestro: el maestro es un agrupamiento
+-- que se recalcula en cada pasada y cuyo identificador puede cambiar.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS excluded_offers (
+    entity_key  TEXT PRIMARY KEY,   -- store_code::external_id_o_url
+    store_code  TEXT,
+    name        TEXT,               -- para poder reconocerla en la lista
+    url         TEXT,
+    reason      TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ---------------------------------------------------------------------------
 -- Productos ya destacados
 --
 -- Cuando no hay ninguna bajada que contar, el bot publica igualmente una buena

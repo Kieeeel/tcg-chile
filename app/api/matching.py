@@ -165,6 +165,28 @@ def merge_candidates(product_id: int, q: str = "", limit: int = 12):
     return queries.merge_candidates(product_id, q=q, limit=limit)
 
 
+@router.delete("/products/{product_id}")
+async def delete_product(product_id: int, reason: Optional[str] = None):
+    """Elimina un producto y evita que vuelva en el siguiente scraping."""
+    try:
+        return grouping.excluir_producto(product_id, reason)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/excluded")
+def excluded_offers(limit: int = 200):
+    """Ofertas eliminadas a mano, para poder deshacerlo."""
+    return grouping.ofertas_excluidas(limit)
+
+
+@router.post("/excluded/restore")
+async def restore_offer(entity_key: str = Body(..., embed=True)):
+    if not grouping.restaurar_oferta(entity_key):
+        raise HTTPException(status_code=404, detail="Esa oferta no estaba eliminada")
+    return {"restored": True}
+
+
 @router.get("/manual-attributes")
 def manual_attributes(limit: int = 200):
     return grouping.manual_attributes(limit)

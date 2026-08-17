@@ -88,6 +88,19 @@ def _content_hash(raw: RawProduct) -> str:
     return hashlib.sha256(payload.encode("utf-8", errors="ignore")).hexdigest()
 
 
+def load_excluded_keys() -> set:
+    """Claves estables de las ofertas que el usuario mandó eliminar.
+
+    Se lee una vez por tienda y no por ficha: son pocas y la consulta dentro
+    del bucle costaría un viaje a la base por cada producto.
+    """
+    with get_connection() as conn:
+        return {
+            r["entity_key"]
+            for r in conn.execute("SELECT entity_key FROM excluded_offers").fetchall()
+        }
+
+
 def load_manual_attributes() -> Dict[str, Dict[str, Any]]:
     """{clave_estable: {atributo: valor}} con las correcciones del usuario."""
     with get_connection() as conn:
@@ -558,11 +571,22 @@ async def scrape_store(store: Dict[str, Any], trigger: str = "manual") -> Dict[s
 
     try:
         adapter = build_adapter(store, cfg, client, report_error)
+        excluidas = load_excluded_keys()
+        saltadas = 0
         async for raw in adapter.iter_products():
+            # Lo que el usuario mandó eliminar no vuelve a entrar. Se comprueba
+            # aquí, antes de normalizar, porque la decisión es sobre la ficha
+            # de la tienda y no depende de nada que se deduzca después.
+            if stable_key(store["code"], raw.external_id, raw.url) in excluidas:
+                saltadas += 1
+                continue
             try:
                 records.append(prepare_record(raw, store, cfg, overrides))
             except Exception as exc:  # noqa: BLE001
                 report_error("parse", raw.url, f"{type(exc).__name__}: {exc}")
+        if saltadas:
+            log("info", store["code"],
+                f"{saltadas} ficha(s) omitidas por estar eliminadas a mano")
     except Exception as exc:  # noqa: BLE001
         report_error("network", store["base_url"], f"{type(exc).__name__}: {exc}")
     finally:

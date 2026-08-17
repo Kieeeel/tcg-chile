@@ -890,6 +890,7 @@ route('producto', async (view, [id]) => {
       <div>
         <button class="btn" id="btn-fav">${p.is_favorite ? '❤️ En favoritos' : '🤍 Añadir a favoritos'}</button>
         <button class="btn" id="btn-unir" title="Unir este producto con otro que sea el mismo artículo">🔗 Unir con otro</button>
+        <button class="btn btn--danger-ghost" id="btn-borrar" title="Eliminarlo y que no se vuelva a indexar">🗑 Eliminar</button>
         <a class="btn" href="/api/export?format=xlsx&product_id=${p.id}">Exportar</a>
       </div>
     </div>
@@ -995,6 +996,22 @@ route('producto', async (view, [id]) => {
   };
 
   document.getElementById('btn-unir').onclick = () => dialogoUnir(p);
+
+  document.getElementById('btn-borrar').onclick = async () => {
+    const tiendas = (p.offers || []).length;
+    // Se avisa de las dos consecuencias, porque la segunda no es evidente:
+    // no es ocultarlo de la lista, es dejar de recogerlo de las tiendas.
+    if (!confirm(
+      `¿Eliminar «${p.name}»?\n\n` +
+      `Se borrarán sus ${tiendas} oferta(s) y no se volverán a indexar en las ` +
+      `próximas actualizaciones.\n\nSe puede deshacer desde Administración → Productos.`
+    )) return;
+    try {
+      const r = await api.del(`/api/products/${p.id}`);
+      toast(`Eliminado «${r.name}» y sus ${num(r.offers)} oferta(s)`);
+      location.hash = '#/buscar';
+    } catch (err) { toast(err.message, true); }
+  };
 
   document.getElementById('btn-alert').onclick = async () => {
     const value = Number(document.getElementById('alert-price').value);
@@ -1894,6 +1911,51 @@ function alertRow(a) {
 // =====================================================================
 const filtrosOfertas = { q: '', store_id: '', language: '', edited_only: false, page: 1 };
 
+/**
+ * Lista de lo eliminado a mano, con su botón para deshacerlo.
+ *
+ * Va plegada y solo aparece si hay algo: eliminar es raro, y una sección
+ * vacía en cada visita solo estorba. Pero tiene que estar en algún sitio, o
+ * un borrado por error se vuelve irreversible desde la interfaz.
+ */
+async function pintarExcluidos() {
+  const caja = document.getElementById('excluidos');
+  if (!caja) return;
+  const filas = await api.get('/api/excluded').catch(() => []);
+  if (!filas.length) { caja.innerHTML = ''; return; }
+
+  caja.innerHTML = `
+    <details class="card" style="margin-bottom:18px">
+      <summary class="excluded__head">
+        ${num(filas.length)} oferta(s) eliminadas a mano — no se vuelven a indexar
+      </summary>
+      <div class="card__body">
+        <table class="table"><thead><tr>
+          <th>Producto</th><th>Tienda</th><th>Eliminada</th><th></th>
+        </tr></thead><tbody>
+          ${filas.map((f) => `<tr>
+            <td>${f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name || f.entity_key)} ↗</a>`
+                        : esc(f.name || f.entity_key)}</td>
+            <td>${esc(f.store_code || '')}</td>
+            <td class="muted">${ago(f.created_at)}</td>
+            <td class="nowrap"><button class="btn btn--sm" data-restore="${esc(f.entity_key)}">Restaurar</button></td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>
+    </details>`;
+
+  caja.querySelectorAll('[data-restore]').forEach((btn) => {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        await api.post('/api/excluded/restore', { entity_key: btn.dataset.restore });
+        toast('Restaurada: volverá en la próxima actualización');
+        pintarExcluidos();
+      } catch (err) { toast(err.message, true); btn.disabled = false; }
+    };
+  });
+}
+
 const vistaProductos = async (view) => {
   const [langs, facets] = await Promise.all([
     state.languages ? Promise.resolve(state.languages) : api.get('/api/languages'),
@@ -1932,7 +1994,11 @@ const vistaProductos = async (view) => {
       </div>
     </div></div>
 
+    <div id="excluidos"></div>
+
     <div id="offer-list"><div class="loading"><span class="spinner"></span> Buscando…</div></div>`;
+
+  pintarExcluidos();
 
   const recargar = () => {
     filtrosOfertas.q = document.getElementById('o-q').value.trim();

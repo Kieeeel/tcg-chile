@@ -702,6 +702,82 @@ def split_offer(store_product_id: int) -> Dict[str, Any]:
     return {"separated_from": len(siblings)}
 
 
+def excluir_producto(product_id: int, motivo: Optional[str] = None) -> Dict[str, Any]:
+    """Borra un producto y evita que vuelva en el siguiente scraping.
+
+    Borrarlo a secas no serviría de nada: sus ofertas siguen publicadas en las
+    tiendas y la próxima pasada las daría de alta otra vez, formando el mismo
+    producto con otro identificador. Por eso lo que se guarda es la decisión,
+    contra la clave estable de cada oferta, y el recogedor se las salta.
+
+    Es reversible: `restaurar_oferta` quita la marca y en la siguiente
+    actualización el producto vuelve.
+    """
+    with get_connection() as conn:
+        producto = conn.execute(
+            "SELECT id, display_name FROM products WHERE id = ?", (product_id,)
+        ).fetchone()
+        if producto is None:
+            raise ValueError("Ese producto ya no existe")
+
+        ofertas = [
+            dict(r) for r in conn.execute(
+                """SELECT sp.id, sp.name, sp.url, sp.external_id, s.code AS store_code
+                   FROM store_products sp JOIN stores s ON s.id = sp.store_id
+                   WHERE sp.product_id = ?""",
+                (product_id,),
+            ).fetchall()
+        ]
+
+    nombre = producto["display_name"]
+    with transaction() as conn:
+        for o in ofertas:
+            conn.execute(
+                """INSERT INTO excluded_offers (entity_key, store_code, name, url, reason)
+                   VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(entity_key) DO UPDATE SET
+                       name = excluded.name, url = excluded.url, reason = excluded.reason""",
+                (
+                    stable_key(o["store_code"], o["external_id"], o["url"]),
+                    o["store_code"], o["name"], o["url"],
+                    motivo or "Eliminado a mano",
+                ),
+            )
+        # Al borrar el maestro, las ofertas quedan sueltas por la clave
+        # foránea; se borran también para que no reaparezcan agrupadas solas.
+        if ofertas:
+            marcas = ",".join("?" * len(ofertas))
+            conn.execute(
+                f"DELETE FROM store_products WHERE id IN ({marcas})",
+                [o["id"] for o in ofertas],
+            )
+        conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
+
+    log("info", "matching",
+        f"Eliminado «{nombre}» y sus {len(ofertas)} oferta(s); no se volverán a indexar")
+    return {"deleted": True, "name": nombre, "offers": len(ofertas)}
+
+
+def ofertas_excluidas(limit: int = 200) -> List[Dict[str, Any]]:
+    with get_connection() as conn:
+        return [
+            dict(r) for r in conn.execute(
+                """SELECT entity_key, store_code, name, url, reason, created_at
+                   FROM excluded_offers ORDER BY created_at DESC LIMIT ?""",
+                (limit,),
+            ).fetchall()
+        ]
+
+
+def restaurar_oferta(entity_key: str) -> bool:
+    """Quita la marca: el producto vuelve en la siguiente actualización."""
+    with transaction() as conn:
+        cur = conn.execute(
+            "DELETE FROM excluded_offers WHERE entity_key = ?", (entity_key,)
+        )
+    return bool(cur.rowcount)
+
+
 def _comprobar_identidad(product_id: int, other_id: int) -> None:
     """Rechaza de antemano las uniones que el agrupador no va a aceptar.
 
