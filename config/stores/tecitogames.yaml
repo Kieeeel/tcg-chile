@@ -1,0 +1,25 @@
+# =====================================================================
+# Tecito Games (https://tecitogames.com) — Shopify.
+#   Verificado: /collections/pokemon/products.json devuelve JSON.
+#
+# 55 productos. Escribe el idioma en el nombre y de formas muy distintas
+# —"ESPAÑOL", "(español)", "(Ingles)", "sobre en ingles"—, todas cubiertas
+# por las reglas de config/normalization.yaml.
+# =====================================================================
+
+code: tecitogames
+name: "Tecito Games"
+base_url: "https://tecitogames.com"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon
+    name: "Pokémon"
+    game: pokemon
+
+page_size: 250
+max_pages: 5

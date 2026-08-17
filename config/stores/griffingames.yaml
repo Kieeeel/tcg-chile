@@ -1,0 +1,26 @@
+# =====================================================================
+# Griffin Games (https://www.griffingames.cl) — WooCommerce.
+#   Verificado: /wp-json/wc/store/v1/products devuelve JSON.
+#
+# La tienda tiene la categoría madre `pokemon-tcg` (22 productos) y varias
+# hijas —colecciones especiales, ETB, mazos, sobres— que suman 18. Se recorre
+# solo la madre: en WooCommerce una categoría incluye lo de sus hijas, y pedir
+# las cinco traería los mismos productos varias veces.
+# =====================================================================
+
+code: griffingames
+name: "Griffin Games"
+base_url: "https://www.griffingames.cl"
+adapter: woocommerce
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - slug: pokemon-tcg
+    name: "Pokémon TCG"
+    game: pokemon
+
+page_size: 100
+max_pages: 5

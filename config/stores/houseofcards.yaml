@@ -1,0 +1,26 @@
+# =====================================================================
+# House of Cards (https://houseofcards.cl) — WooCommerce.
+#   Verificado: /wp-json/wc/store/v1/products devuelve JSON.
+#
+# La dirección que se ve en el navegador es /collections/tcg-pokemon/, que
+# parece de Shopify pero no lo es: /collections/…/products.json devuelve 404 y
+# la portada declara WooCommerce. El slug real de la categoría es
+# `tcg-pokemon`, con 11 productos.
+# =====================================================================
+
+code: houseofcards
+name: "House of Cards"
+base_url: "https://houseofcards.cl"
+adapter: woocommerce
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - slug: tcg-pokemon
+    name: "TCG Pokémon"
+    game: pokemon
+
+page_size: 100
+max_pages: 5

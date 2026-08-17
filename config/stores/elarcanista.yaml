@@ -1,0 +1,25 @@
+# =====================================================================
+# El Arcanista (https://elarcanista.cl) — Shopify.
+#   Verificado: /collections/pokemon-trading-card-game/products.json da JSON.
+#
+# Catálogo muy pequeño: 5 productos, y uno de ellos es una inscripción a un
+# torneo, no un producto sellado. No pasa nada: sin gemelo en otras tiendas
+# se queda como producto suelto y no ensucia ninguna comparación.
+# =====================================================================
+
+code: elarcanista
+name: "El Arcanista"
+base_url: "https://elarcanista.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon-trading-card-game
+    name: "Pokémon TCG"
+    game: pokemon
+
+page_size: 250
+max_pages: 3

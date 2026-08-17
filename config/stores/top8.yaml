@@ -1,0 +1,45 @@
+# =====================================================================
+# Top 8 (https://www.top8.cl) — Bsale.
+#
+# Misma plataforma y mismos selectores que Third Impact y Game of Magic: las
+# tiendas Bsale comparten tema, así que la receta se reutiliza tal cual.
+#
+# 179 productos: con `?limit=100` son dos páginas (100 + 79).
+#
+# Como en las otras Bsale, algunas fichas esconden la versión española y la
+# inglesa bajo la misma dirección; `expand_json_ld_variants` las separa y el
+# aviso al pulsar el enlace explica al usuario que elija la versión. Ver
+# thirdimpact.yaml para la explicación larga.
+# =====================================================================
+
+code: top8
+name: "Top 8"
+base_url: "https://www.top8.cl"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Pokémon TCG"
+    url: "/collection/tcg-pokemon-tcg?limit=100"
+    game: pokemon
+
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 4
+
+listing:
+  item: "div.bs-collection__product"
+  link: "a.bs-collection__product-info"
+
+use_json_ld: true
+expand_json_ld_variants: true
+
+selectors:
+  # Sin `name`: se usa el del JSON-LD, que es el que trae el idioma.
+  price: [".bs-product__final-price"]
+  description: ".bs-product__description"

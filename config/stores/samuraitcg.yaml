@@ -1,0 +1,45 @@
+# =====================================================================
+# Samurai TCG (https://www.samuraitcg.com) — Jumpseller.
+#
+# Cómo supe que era Jumpseller: la portada declara `generator: Jumpseller` y
+# las fichas usan las clases `product-block__*` de su tema.
+#
+# 27 productos repartidos de 12 en 12, así que son tres páginas.
+#
+# Cada ficha trae JSON-LD de tipo Product con nombre, precio y disponibilidad,
+# que es más fiable que rascar el HTML: el precio del listado y el de la ficha
+# no siempre coinciden cuando hay descuento.
+# =====================================================================
+
+code: samuraitcg
+name: "Samurai TCG"
+base_url: "https://www.samuraitcg.com"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Pokémon sellados"
+    url: "/pokemon-sellados"
+    game: pokemon
+
+pagination:
+  mode: query
+  param: page
+  start: 1
+  max_pages: 5
+
+listing:
+  # Ojo: cada producto es un <article>, no un <div>. Con `div.product-block`
+  # el listado salía vacío sin dar ningún error, que es el fallo más molesto
+  # de configurar por selectores.
+  item: "article.product-block"
+  link: "a.product-block__name"
+
+use_json_ld: true
+
+selectors:
+  price: [".product-block__price", ".product-form__price"]
+  description: ".product-description"
