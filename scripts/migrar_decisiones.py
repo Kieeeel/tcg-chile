@@ -1,8 +1,12 @@
 """Copia a Supabase las decisiones manuales de la base local.
 
 Todo lo demás —tiendas, ofertas, precios— lo vuelve a construir el scraping en
-la primera pasada. Estas dos tablas no: son trabajo tuyo, revisando productos a
-mano, y si no se copian se pierden.
+la primera pasada. Estas tres tablas no: son trabajo tuyo, revisando productos
+a mano, y si no se copian se pierden.
+
+  · manual_matches    — «estos dos son el mismo producto», y lo contrario
+  · manual_attributes — idiomas, expansiones y enlaces corregidos
+  · excluded_offers   — lo que mandaste eliminar y no debe volver
 
     python scripts/migrar_decisiones.py --dry-run     # solo mira y cuenta
     python scripts/migrar_decisiones.py               # copia de verdad
@@ -41,6 +45,15 @@ TABLAS = (
         "columnas": ("entity_key", "attribute", "value", "note"),
         "clave": ("entity_key", "attribute"),
         "actualiza": ("value", "note"),
+    },
+    {
+        # Lo eliminado a mano. Sin esto, el bot seguiría publicando ofertas de
+        # productos que ya borraste: la exclusión vive en la base, y son dos
+        # bases distintas.
+        "nombre": "excluded_offers",
+        "columnas": ("entity_key", "store_code", "name", "url", "reason"),
+        "clave": ("entity_key",),
+        "actualiza": ("store_code", "name", "url", "reason"),
     },
 )
 
