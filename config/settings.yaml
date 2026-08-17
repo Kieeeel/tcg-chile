@@ -58,6 +58,11 @@ telegram:
   # producto de $80.000 no es noticia.
   min_drop_pct: 5
   min_drop_amount: 2000
+  # Tope por arriba: una bajada mayor que esto casi nunca es real, es que el
+  # precio anterior estaba mal. Sin este freno, arreglar un scraper que
+  # guardaba precios equivocados hacía que el bot anunciara cada corrección
+  # como una rebaja del 90 %.
+  max_drop_pct: 70
   # Publicar corre en su propio flujo cada hora (`run.py --publicar`), no al
   # final del scraping. En false vuelve a publicarse todo junto al terminar
   # una pasada de precios.

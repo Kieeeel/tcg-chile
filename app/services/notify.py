@@ -123,6 +123,8 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
     with get_connection() as conn:
         filas = [dict(f) for f in conn.execute(sql, tipos).fetchall()]
 
+    max_pct = float(cfg.get("max_drop_pct", 70) or 0)
+
     salida: List[Dict[str, Any]] = []
     for fila in filas:
         if fila["type"] == "price_drop":
@@ -133,6 +135,19 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
             bajada = antes - ahora
             pct = abs(fila["pct_change"] or 0)
             if bajada < min_monto or pct < min_pct:
+                continue
+
+            # Y una bajada del 80 % tampoco: casi siempre es que el precio de
+            # antes estaba mal. Pasó de verdad — al corregir un scraper que
+            # tomaba el precio de un producto relacionado, sus 18 fichas se
+            # arreglaron de golpe y el bot anunció cada corrección como una
+            # rebaja del 90 %. Anunciar una oferta falsa es peor que callar
+            # una buena: manda a alguien a una tienda a por algo que no existe.
+            if max_pct and pct > max_pct:
+                log("warn", "telegram",
+                    f"No se anuncia «{fila.get('display_name') or fila.get('offer_name')}»: "
+                    f"bajada del {pct:.0f}% ({_pesos(antes)} → {_pesos(ahora)}), "
+                    f"demasiado grande para ser real")
                 continue
             fila["_bajada"] = bajada
         salida.append(fila)

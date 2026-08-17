@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+import sys
 import threading
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -328,7 +329,17 @@ def log(level: str, scope: str, message: str) -> None:
     dónde se atasca.
     """
     marca = datetime.now(timezone.utc).strftime("%H:%M:%S")
-    print(f"[{marca}] {level:5} {scope:14} {message}", flush=True)
+    linea = f"[{marca}] {level:5} {scope:14} {message}"
+    try:
+        print(linea, flush=True)
+    except UnicodeEncodeError:
+        # La consola de Windows suele venir en cp1252 y no sabe escribir «→»
+        # ni «—», que sí aparecen en los mensajes. Antes esto reventaba el
+        # proceso entero: un registro no puede tumbar una actualización.
+        salida = sys.stdout
+        codificacion = getattr(salida, "encoding", None) or "ascii"
+        print(linea.encode(codificacion, errors="replace").decode(codificacion),
+              flush=True)
     try:
         with transaction() as conn:
             conn.execute(
