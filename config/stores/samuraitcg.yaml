@@ -40,6 +40,18 @@ listing:
 
 use_json_ld: true
 
+# SIN selector de precio, a propósito.
+#
+# El precio se toma del JSON-LD de la ficha, que es el del producto que se
+# está mirando. Poner `.product-block__price` fue un error caro: esa clase es
+# la de las tarjetas del listado, y la ficha muestra abajo un carrusel de
+# productos relacionados con esa misma clase. El selector enganchaba la
+# primera tarjeta del carrusel, así que la Ultra Premium Collection de Mega
+# Charizard X se guardó a $77.990 cuando vale $249.990 — y salía como la
+# oferta más barata de catorce tiendas.
+#
+# Regla general: en una ficha de producto, un selector que también aparece en
+# los listados es sospechoso. El del listado está pensado para muchas
+# tarjetas; en la ficha puede haber más de una y la primera no es la buena.
 selectors:
-  price: [".product-block__price", ".product-form__price"]
   description: ".product-description"
