@@ -104,6 +104,7 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
 
     sql = f"""
         SELECT e.id, e.type, e.old_value, e.new_value, e.pct_change, e.created_at,
+               e.store_product_id,
                sp.name AS offer_name, sp.url, sp.language, sp.price AS current_price,
                p.id AS product_id, p.display_name, p.game,
                -- La foto de la tienda manda: es la de ese producto concreto.
@@ -124,6 +125,7 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
         filas = [dict(f) for f in conn.execute(sql, tipos).fetchall()]
 
     max_pct = float(cfg.get("max_drop_pct", 70) or 0)
+    solo_mejor = bool(cfg.get("back_in_stock_solo_mejor", True))
 
     salida: List[Dict[str, Any]] = []
     for fila in filas:
@@ -150,10 +152,66 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
                     f"demasiado grande para ser real")
                 continue
             fila["_bajada"] = bajada
+
+        elif fila["type"] == "back_in_stock" and solo_mejor:
+            # «Volvió a haber stock» solo es noticia si además conviene
+            # comprarlo ahí. Que reaparezca en la tienda más cara del mercado
+            # no le sirve a nadie, y hace ruido en el grupo.
+            mercado = _posicion_en_el_mercado(fila)
+            if mercado is None:
+                log("info", "telegram",
+                    f"No se anuncia el stock de «{fila.get('display_name') or fila.get('offer_name')}»: "
+                    f"no hay otras tiendas con las que compararlo")
+                continue
+            if not mercado["es_el_mejor"]:
+                log("info", "telegram",
+                    f"No se anuncia el stock de «{fila.get('display_name') or fila.get('offer_name')}»: "
+                    f"{_pesos(fila.get('current_price'))} y el más barato está a "
+                    f"{_pesos(mercado['mejor'])}")
+                continue
+            fila["_mercado"] = mercado
+
         salida.append(fila)
         if len(salida) >= limite:
             break
     return salida
+
+
+def _posicion_en_el_mercado(fila: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Dónde queda esta oferta frente a las demás tiendas que lo tienen.
+
+    Devuelve None si no hay con qué comparar: sin grupo, sin precio, o siendo
+    la única tienda que lo vende. En esos casos no se puede afirmar nada sobre
+    el mercado, y afirmarlo igual sería mentir.
+    """
+    precio = _numero(fila.get("current_price"))
+    if precio is None or not fila.get("product_id"):
+        return None
+
+    disponibles = settings.get("stock.available_states", ["in_stock", "preorder"]) or []
+    if not disponibles:
+        return None
+
+    filas = query(
+        f"""SELECT sp.id, sp.price
+            FROM store_products sp
+            WHERE sp.product_id = ? AND sp.is_active = 1
+              AND sp.price IS NOT NULL
+              AND sp.stock_status IN ({','.join('?' * len(disponibles))})""",
+        (fila["product_id"], *disponibles),
+    )
+    precios = [float(f["price"]) for f in filas]
+    if len(precios) < 2:
+        return None
+
+    mas_barato = min(precios)
+    return {
+        "tiendas": len(precios),
+        "mejor": mas_barato,
+        # Con holgura de un peso: dos tiendas al mismo precio empatan, y no
+        # tiene sentido que gane la que se guardó primero.
+        "es_el_mejor": precio <= mas_barato + 1,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +277,11 @@ def _linea(evento: Dict[str, Any]) -> str:
         # En «volvió a haber stock» y «nuevo», `new_value` no es un precio:
         # el importe se toma de la oferta tal como está ahora.
         filas.append(f"Precio · {_pesos(evento['current_price'])}")
+        # Si se comprobó que es el más barato, decirlo: es la diferencia entre
+        # «hay stock» y «hay stock y además es donde más conviene».
+        mercado = evento.get("_mercado")
+        if mercado:
+            filas.append(f"El más barato de {mercado['tiendas']} tiendas")
 
     if url:
         filas.append(f'<a href="{html.escape(url, quote=True)}">Ver en la tienda</a>')

@@ -54,6 +54,11 @@ telegram:
   header: "🔥 <b>Ofertas TCG Chile</b>"
   # Qué se anuncia: price_drop | back_in_stock | new_product
   publish: [price_drop, back_in_stock]
+  # «Volvió a haber stock» solo se anuncia si además es el precio más bajo del
+  # mercado. Que un producto reaparezca en la tienda más cara no le sirve a
+  # nadie. Hace falta al menos otra tienda con la que comparar: sin eso no se
+  # puede afirmar que sea el mejor precio, y no se publica.
+  back_in_stock_solo_mejor: true
   # Filtros para que el grupo no se llene de ruido. Una bajada de $200 en un
   # producto de $80.000 no es noticia.
   min_drop_pct: 5
