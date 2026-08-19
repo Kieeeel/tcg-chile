@@ -51,17 +51,48 @@ sin_novedad:
 # De la dirección solo importa el producto: los `?_pos=…&_sid=…` que añade el
 # buscador de la tienda al copiar el enlace se quitan solos. El `?variant=` sí
 # se respeta, porque ahí cada variante tiene su precio y su stock.
+# =====================================================================
+# 30 aniversario (puesto el 19-08-2026)
+#
+# La etiqueta lleva SIEMPRE la tienda. Con siete direcciones de la misma
+# Elite Trainer Box, un mensaje que dijera solo «ETB (Inglés)» no diría
+# dónde hay que ir a comprarla, que es lo único que importa cuando salta.
+#
+# Estado al añadirlos: todo agotado menos La Fortaleza. La mayoría de estas
+# tiendas no están en config/stores/, así que estos enlaces son lo único que
+# el proyecto sabe de ellas.
+# =====================================================================
 enlaces:
-  # --- 30 aniversario, Piedra Bruja (19-08-2026) -----------------------------
-  # Los cinco están publicados y AGOTADOS. Se vigila el momento en que
-  # cualquiera pase a poder comprarse.
-  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-espeon-ultra-premium-collection-ing"
-    etiqueta: "30 aniversario · Espeon Ultra Premium Collection (Inglés)"
+  # --- Elite Trainer Box (Inglés) — siete tiendas, de $67.990 a $92.990 ---
+  - url: "https://eldesafiostore.cl/producto/preventa-pokemon-tcg-30th-celebration-elite-trainer-box-english/"
+    etiqueta: "30 aniversario · ETB (Inglés) — El Desafío"
+  - url: "https://www.oasisgames.cl/products/pokemon-30th-celebration-elite-trainer-box"
+    etiqueta: "30 aniversario · ETB (Inglés) — Oasis Games"
+  - url: "https://www.lafortalezapuq.cl/pokemon-tcg-30th-celebration-elite-trainer-box"
+    etiqueta: "30 aniversario · ETB (Inglés) — La Fortaleza"
+  - url: "https://cartonesguayacan.cl/pokemon/30th-celebration-etb-elite-trainer-box-chile"
+    etiqueta: "30 aniversario · ETB (Inglés) — Cartones Guayacán"
   - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-elite-trainer-box-ing"
-    etiqueta: "30 aniversario · Elite Trainer Box (Inglés)"
-  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-umbreon-ultra-premium-collection-esp"
-    etiqueta: "30 aniversario · Umbreon Ultra Premium Collection (Español)"
-  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-booster-bundle-ing"
-    etiqueta: "30 aniversario · Booster Bundle (Inglés)"
+    etiqueta: "30 aniversario · ETB (Inglés) — Piedra Bruja"
+  - url: "https://www.santogames.cl/30th-celebration-elite-trainer-box"
+    etiqueta: "30 aniversario · ETB (Inglés) — Santo Games"
+  - url: "https://www.rtgamerstore.cl/preventa-16092026-pokemon-tcg-30th-celebration-elite-trainer-box-ingles"
+    etiqueta: "30 aniversario · ETB (Inglés) — RT Gamer"
+
+  # --- Ditto Premium Collection (Inglés) ---
   - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-ditto-premium-collection-ing"
-    etiqueta: "30 aniversario · Ditto Premium Collection (Inglés)"
+    etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Piedra Bruja"
+  - url: "https://www.santogames.cl/pokemon-tcg-30th-celebration-ditto-premium-collection-ingles"
+    etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Santo Games"
+
+  # --- Booster Bundle (Inglés) ---
+  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-booster-bundle-ing"
+    etiqueta: "30 aniversario · Booster Bundle (Inglés) — Piedra Bruja"
+  - url: "https://www.santogames.cl/pokemon-tcg-30th-celebration-booster-bundle-ingles"
+    etiqueta: "30 aniversario · Booster Bundle (Inglés) — Santo Games"
+
+  # --- Ultra Premium Collection — solo Piedra Bruja por ahora ---
+  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-espeon-ultra-premium-collection-ing"
+    etiqueta: "30 aniversario · Espeon Ultra Premium Collection (Inglés) — Piedra Bruja"
+  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-umbreon-ultra-premium-collection-esp"
+    etiqueta: "30 aniversario · Umbreon Ultra Premium Collection (Español) — Piedra Bruja"
