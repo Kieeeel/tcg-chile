@@ -20,7 +20,7 @@ import asyncio
 import html
 import re
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -89,11 +89,37 @@ def enlaces() -> List[Dict[str, Any]]:
             etiqueta = entrada.get("etiqueta") or entrada.get("nombre")
         else:
             continue
-        if not url.startswith("http") or url in vistas:
+        if not url.startswith("http"):
+            continue
+        url = _normalizar(url)
+        if url in vistas:
             continue
         vistas.add(url)
         salida.append({"url": url, "etiqueta": etiqueta})
     return salida
+
+
+# Lo único de la query que forma parte de la identidad de la ficha. El resto
+# —`_pos`, `_sid`, `utm_*`, `fbclid`…— lo añade el buscador de la tienda al
+# copiar el enlace desde una búsqueda.
+_QUERY_UTIL = ("variant",)
+
+
+def _normalizar(url: str) -> str:
+    """Quita de la dirección lo que no identifica al producto.
+
+    Un enlace copiado desde el buscador de la tienda arrastra la sesión de esa
+    búsqueda. Si se guardara tal cual, el mismo producto pegado dos veces desde
+    dos búsquedas distintas serían dos filas, y la dirección del mensaje
+    llevaría una sesión ajena y ya caducada.
+    """
+    partes = urlsplit(url)
+    query = "&".join(
+        trozo for trozo in partes.query.split("&")
+        if trozo.split("=")[0] in _QUERY_UTIL
+    )
+    return urlunsplit((partes.scheme, partes.netloc,
+                       partes.path.rstrip("/") or "/", query, ""))
 
 
 # ---------------------------------------------------------------------------

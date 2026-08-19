@@ -26,4 +26,21 @@ enabled: true
 #     - url: "https://www.huntercardtcg.com/producto/lo-que-sea/"
 #       etiqueta: "30 aniversario — Elite Trainer Box"
 #     - "https://otra-tienda.cl/products/algo"     # también vale a secas
-enlaces: []
+#
+# De la dirección solo importa el producto: los `?_pos=…&_sid=…` que añade el
+# buscador de la tienda al copiar el enlace se quitan solos. El `?variant=` sí
+# se respeta, porque ahí cada variante tiene su precio y su stock.
+enlaces:
+  # --- 30 aniversario, Piedra Bruja (19-08-2026) -----------------------------
+  # Los cinco están publicados y AGOTADOS. Se vigila el momento en que
+  # cualquiera pase a poder comprarse.
+  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-espeon-ultra-premium-collection-ing"
+    etiqueta: "30 aniversario · Espeon Ultra Premium Collection (Inglés)"
+  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-elite-trainer-box-ing"
+    etiqueta: "30 aniversario · Elite Trainer Box (Inglés)"
+  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-umbreon-ultra-premium-collection-esp"
+    etiqueta: "30 aniversario · Umbreon Ultra Premium Collection (Español)"
+  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-booster-bundle-ing"
+    etiqueta: "30 aniversario · Booster Bundle (Inglés)"
+  - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-ditto-premium-collection-ing"
+    etiqueta: "30 aniversario · Ditto Premium Collection (Inglés)"
