@@ -81,11 +81,18 @@ enlaces:
   - url: "https://www.rtgamerstore.cl/preventa-16092026-pokemon-tcg-30th-celebration-elite-trainer-box-ingles"
     etiqueta: "30 aniversario · ETB (Inglés) — RT Gamer"
 
-  # --- Ditto Premium Collection (Inglés) ---
+  # --- Ditto Premium Collection (Inglés) — de $54.990 a $70.000 ---
+  # La ficha de Area 52 tiene una sola variante, así que el `?variant=…` con
+  # el que viene el enlace sobra: sin él es la misma página. Puesto dos veces
+  # —con y sin— serían dos filas y dos mensajes por el mismo producto.
+  - url: "https://area52.cl/products/pokemon-tcg-30th-celebration-ditto-premium-collection-ingles-preventa"
+    etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Area 52"
   - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-ditto-premium-collection-ing"
     etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Piedra Bruja"
   - url: "https://www.santogames.cl/pokemon-tcg-30th-celebration-ditto-premium-collection-ingles"
     etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Santo Games"
+  - url: "https://www.winterland.cl/product/30th-celebration-ditto-premium-collection"
+    etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Winterland"
 
   # --- Booster Bundle (Inglés) ---
   - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-booster-bundle-ing"
