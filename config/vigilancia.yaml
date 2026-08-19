@@ -54,7 +54,7 @@ sin_novedad:
 # =====================================================================
 # 30 aniversario (puesto el 19-08-2026)
 #
-# La etiqueta lleva SIEMPRE la tienda. Con siete direcciones de la misma
+# La etiqueta lleva SIEMPRE la tienda. Con ocho direcciones de la misma
 # Elite Trainer Box, un mensaje que dijera solo «ETB (Inglés)» no diría
 # dónde hay que ir a comprarla, que es lo único que importa cuando salta.
 #
@@ -63,7 +63,7 @@ sin_novedad:
 # el proyecto sabe de ellas.
 # =====================================================================
 enlaces:
-  # --- Elite Trainer Box (Inglés) — siete tiendas, de $67.990 a $92.990 ---
+  # --- Elite Trainer Box (Inglés) — ocho tiendas, de $67.990 a $92.990 ---
   - url: "https://eldesafiostore.cl/producto/preventa-pokemon-tcg-30th-celebration-elite-trainer-box-english/"
     etiqueta: "30 aniversario · ETB (Inglés) — El Desafío"
   - url: "https://www.oasisgames.cl/products/pokemon-30th-celebration-elite-trainer-box"
@@ -72,6 +72,8 @@ enlaces:
     etiqueta: "30 aniversario · ETB (Inglés) — La Fortaleza"
   - url: "https://cartonesguayacan.cl/pokemon/30th-celebration-etb-elite-trainer-box-chile"
     etiqueta: "30 aniversario · ETB (Inglés) — Cartones Guayacán"
+  - url: "https://questloot.cl/producto/pokemon-tcg-30th-celebration-elite-trainer-box-en/"
+    etiqueta: "30 aniversario · ETB (Inglés) — Quest Loot"
   - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-elite-trainer-box-ing"
     etiqueta: "30 aniversario · ETB (Inglés) — Piedra Bruja"
   - url: "https://www.santogames.cl/30th-celebration-elite-trainer-box"
