@@ -123,12 +123,29 @@ def pruebas(escribir: bool):
         from app.services import membership
         return membership.socios(None)
 
+    def vigilancia_estado():
+        # La escritura es un upsert sobre una tabla con clave de texto, que es
+        # justo el tipo de consulta que se comporta distinto en cada motor.
+        # Se prueba con una dirección de mentira y se borra después.
+        from app.db.database import query, transaction
+        from app.services import watch
+
+        prueba = "https://ejemplo.invalido/probar-base"
+        watch._guardar({"url": prueba, "etiqueta": "prueba"},
+                       {"http": 404, "nombre": None, "precio": None,
+                        "stock": None, "imagen": None}, avisado=False)
+        filas = query("SELECT * FROM vigilancia WHERE url = ?", (prueba,))
+        with transaction() as conn:
+            conn.execute("DELETE FROM vigilancia WHERE url = ?", (prueba,))
+        return f"{len(watch.enlaces())} enlace(s) en la lista, upsert {'ok' if filas else 'FALLÓ'}"
+
     lista += [
         ("scheduler.last_update", scheduler_info),
         ("notify.eventos_pendientes", telegram_pendientes),
         ("notify.destacado", telegram_destacado),
         ("notify.horas desde el último envío", telegram_ultimo_envio),
         ("membresia.socios", membresia_socios),
+        ("vigilancia", vigilancia_estado),
     ]
     return lista
 

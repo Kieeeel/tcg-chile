@@ -1,0 +1,69 @@
+name: Preventa (temporal)
+
+# Flujo TEMPORAL para un lanzamiento anunciado. Cada hora hace tres cosas:
+#
+#   1. Recorre solo Hunter Card TCG. Una tienda sola tarda menos de un minuto,
+#      así que se puede mirar cada hora sin cargar nada; el recorrido completo
+#      de las veinticinco sigue yendo aparte, cada cuatro horas.
+#   2. Mira los enlaces de config/vigilancia.yaml, uno a uno.
+#   3. Publica lo que haya salido, sin esperar al turno de `publicar.yml`.
+#
+# Cuando pase el lanzamiento se borra este archivo y se pone
+# `preventa.enabled: false` en config/settings.yaml. No hay nada más que
+# deshacer: el scraping de las demás tiendas nunca se llegó a tocar.
+on:
+  schedule:
+    # A los cinco de cada hora. Los horarios de GitHub llegan tarde casi
+    # siempre; para un intervalo de una hora eso da igual, pero conviene no
+    # ponerlo en punto y competir con todo el mundo.
+    - cron: "5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  # El mismo grupo que el recorrido completo: dos scrapings a la vez sobre la
+  # misma base se pisarían al reagrupar.
+  group: scraping
+  cancel-in-progress: false
+
+jobs:
+  preventa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Actualizar Hunter Card TCG
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+        run: python run.py --update --store huntercard
+
+      - name: Mirar los enlaces vigilados
+        # Aunque el scraping falle: un enlace vigilado puede estar en otra
+        # tienda, y es justo lo que no conviene perderse.
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python run.py --vigilar
+
+      - name: Publicar lo que haya salido
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+        run: python run.py --publicar

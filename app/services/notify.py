@@ -79,7 +79,56 @@ def estado() -> Dict[str, Any]:
         "has_token": token() is not None,
         "dry_run": bool(cfg.get("dry_run", True)),
         "publish": list(cfg.get("publish") or []),
+        "preventa": preventa(),
         "pending": len(eventos_pendientes()),
+    }
+
+
+def preventa() -> Dict[str, Any]:
+    """Modo temporal: durante unos días el grupo habla de una sola tienda.
+
+    Sirve para un lanzamiento anunciado, cuando lo que interesa es no perderse
+    nada de UNA tienda concreta y el resto del mercado sobra. Mientras está
+    encendido, el bot solo publica eventos de las tiendas de la lista, y de
+    esas publica también los productos nuevos, que el resto del año son
+    demasiados para el grupo.
+
+    Devuelve {} cuando está apagado, que es lo normal. El scraping NO se toca:
+    las demás tiendas se siguen recorriendo y el comparador sigue completo, es
+    solo el bot el que se calla. Apagarlas de verdad dejaría la web con precios
+    de hace días y daría de baja media base al volver.
+    """
+    cfg = dict(settings.get("preventa", {}) or {})
+    if not cfg.get("enabled"):
+        return {}
+
+    tiendas = [str(c).strip() for c in (cfg.get("tiendas") or []) if str(c).strip()]
+    if not tiendas:
+        return {}
+
+    # Fecha de caducidad opcional: «temporal» solo lo es de verdad si se apaga
+    # solo. Sin ella hay que acordarse a mano, y nadie se acuerda.
+    #
+    # Los avisos van por pantalla y no al registro de la base: esto se consulta
+    # varias veces en cada publicación, y publicando cada diez minutos serían
+    # cientos de líneas al día repitiendo lo mismo.
+    hasta = str(cfg.get("hasta") or "").strip()
+    if hasta:
+        try:
+            limite = datetime.fromisoformat(hasta).date()
+        except ValueError:
+            print(f"[telegram] preventa.hasta = «{hasta}» no es una fecha "
+                  f"(AAAA-MM-DD); se ignora y el modo sigue encendido", flush=True)
+        else:
+            if _ahora_en_chile().date() > limite:
+                print(f"[telegram] El modo preventa venció el {limite}; "
+                      f"se publica con normalidad", flush=True)
+                return {}
+
+    return {
+        "tiendas": tiendas,
+        "publicar": [t for t in (cfg.get("publicar") or []) if t in PLANTILLAS],
+        "hasta": hasta or None,
     }
 
 
@@ -94,6 +143,15 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     cfg = config()
     tipos = [t for t in (cfg.get("publish") or ["price_drop"]) if t in PLANTILLAS]
+
+    # En modo preventa se amplía lo que se cuenta (productos nuevos, sobre
+    # todo) pero SOLO de las tiendas de la lista. Los dos van juntos a
+    # propósito: publicar los productos nuevos de las veinticinco tiendas
+    # sería un mensaje cada pocos minutos.
+    modo = preventa()
+    if modo:
+        tipos = sorted(set(tipos) | set(modo["publicar"]))
+
     if not tipos:
         return []
 
@@ -101,6 +159,12 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
     min_pct = float(cfg.get("min_drop_pct", 0) or 0)
     min_monto = float(cfg.get("min_drop_amount", 0) or 0)
     horas = int(cfg.get("max_age_hours", 48) or 48)
+
+    filtro_tienda = ""
+    parametros: List[Any] = list(tipos)
+    if modo:
+        filtro_tienda = f"AND s.code IN ({','.join('?' * len(modo['tiendas']))})"
+        parametros += modo["tiendas"]
 
     sql = f"""
         SELECT e.id, e.type, e.old_value, e.new_value, e.pct_change, e.created_at,
@@ -118,11 +182,12 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
         LEFT JOIN telegram_sent t ON t.event_id = e.id
         WHERE t.event_id IS NULL
           AND e.type IN ({','.join('?' * len(tipos))})
+          {filtro_tienda}
           AND e.created_at >= datetime('now', '-{horas} hours')
         ORDER BY e.created_at ASC, e.id ASC
     """
     with get_connection() as conn:
-        filas = [dict(f) for f in conn.execute(sql, tipos).fetchall()]
+        filas = [dict(f) for f in conn.execute(sql, parametros).fetchall()]
 
     max_pct = float(cfg.get("max_drop_pct", 70) or 0)
     solo_mejor = bool(cfg.get("back_in_stock_solo_mejor", True))
@@ -607,6 +672,15 @@ async def _publicar_destacado(forzar_envio: bool) -> Dict[str, Any]:
     if not cfg.get("destacado_si_no_hay", True):
         log("info", "telegram", "Nada que publicar")
         return {"sent": 0, "reason": "nada nuevo que contar"}
+
+    # El relleno saca la oportunidad del comparador entero, así que en modo
+    # preventa contradiría lo que se pidió: el grupo estaría hablando de otras
+    # tiendas justo los días en que solo debe hablar de una.
+    modo = preventa()
+    if modo:
+        print(f"[telegram] Sin novedades de {', '.join(modo['tiendas'])} y en modo "
+              f"preventa: no se publica oportunidad de relleno", flush=True)
+        return {"sent": 0, "reason": "preventa: solo se habla de esas tiendas"}
 
     if not _es_momento_de_relleno():
         # Por pantalla y no al registro de la base: esto corre cada 10 minutos

@@ -22,6 +22,8 @@ def main() -> int:
     parser.add_argument("--publicar", action="store_true",
                         help="publica en Telegram lo que haya pendiente y termina")
     parser.add_argument("--store", action="append", help="limita --update a estas tiendas")
+    parser.add_argument("--vigilar", action="store_true",
+                        help="mira los enlaces de config/vigilancia.yaml y termina")
     args = parser.parse_args()
 
     from app import settings
@@ -30,6 +32,21 @@ def main() -> int:
 
     init_db()
     seed_catalogs()
+
+    if args.vigilar:
+        # Enlaces sueltos, mirados uno a uno. No recorre ninguna tienda ni toca
+        # el catálogo: solo compara cada ficha con cómo estaba la última vez.
+        from app.db.database import log
+        from app.services import watch
+
+        try:
+            resultado = asyncio.run(watch.revisar())
+        except Exception as exc:  # noqa: BLE001
+            log("warn", "vigilancia", f"No se pudo completar: {exc}")
+            print(f"\nVigilancia: falló: {exc}\n")
+            return 1
+        print(f"\nVigilancia: {resultado}\n")
+        return 0
 
     if args.publicar:
         # Publicar va por su cuenta, cada hora, para que las ofertas salgan a

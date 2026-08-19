@@ -1,0 +1,29 @@
+# =====================================================================
+# Vigilancia de enlaces concretos
+#
+# El scraping normal recorre categorías enteras cada cuatro horas. Esto es
+# otra cosa: una lista corta de direcciones que se miran UNA A UNA cada hora,
+# para no llegar tarde a una preventa anunciada.
+#
+# El bot avisa al grupo cuando esa ficha cambia de estado:
+#   · aparece (la dirección devolvía 404 y ya no)
+#   · se puede comprar (pasa a «en stock» o «preventa»)
+#   · cambia de precio
+#
+# Mientras nada cambie, calla. Mirar cada hora no significa hablar cada hora.
+#
+# No hace falta que la tienda esté configurada en config/stores/: se lee la
+# ficha directamente. Funciona con cualquier tienda que declare el precio en
+# JSON-LD, en Open Graph o en la API de WooCommerce, que es casi todas.
+# =====================================================================
+
+enabled: true
+
+# Cada línea, una dirección. Con `etiqueta` para leerlo cómodo aquí; si no se
+# pone, se usa el nombre que declare la tienda.
+#
+#   enlaces:
+#     - url: "https://www.huntercardtcg.com/producto/lo-que-sea/"
+#       etiqueta: "30 aniversario — Elite Trainer Box"
+#     - "https://otra-tienda.cl/products/algo"     # también vale a secas
+enlaces: []

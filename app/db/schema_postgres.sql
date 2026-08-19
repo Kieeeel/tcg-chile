@@ -482,3 +482,24 @@ CREATE TABLE IF NOT EXISTS miembros (
     updated_at  TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS'))
 );
 CREATE INDEX IF NOT EXISTS idx_miembros_vence ON miembros(estado, vence_at);
+
+-- ---------------------------------------------------------------------------
+-- Vigilancia de enlaces sueltos
+--
+-- Fuera del catálogo normal: direcciones concretas que se miran una a una, sin
+-- recorrer la tienda entera. Se guarda el último estado conocido para poder
+-- contar solo lo que cambia; sin eso, mirar cada hora sería anunciar cada hora
+-- lo mismo.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vigilancia (
+    url          TEXT PRIMARY KEY,
+    etiqueta     TEXT,
+    nombre       TEXT,
+    price        DOUBLE PRECISION,
+    stock_status TEXT,
+    http_status  INTEGER,
+    image_url    TEXT,
+    primera_vez  TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')),
+    visto_at     TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')),
+    avisado_at   TEXT
+);

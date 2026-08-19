@@ -112,6 +112,31 @@ telegram:
   delay_between_messages: 3
 
 # ---------------------------------------------------------------------------
+# Modo preventa (TEMPORAL)
+#
+# Durante un lanzamiento anunciado el grupo solo habla de las tiendas de esta
+# lista, y de ellas cuenta también los productos nuevos —que el resto del año
+# son demasiados: entre las veinticinco tiendas salen decenas al día—.
+#
+# Lo que NO hace: apagar el scraping de las demás. Se siguen recorriendo cada
+# cuatro horas y la web sigue completa; lo único que cambia es de qué habla el
+# bot. Apagarlas de verdad dejaría los precios envejeciendo y, al volver a
+# encenderlas, daría de baja y de alta media base de golpe.
+#
+# Para volver a la normalidad: `enabled: false`. O deja una fecha en `hasta`
+# y se apaga solo, que es más fiable que acordarse.
+# ---------------------------------------------------------------------------
+preventa:
+  enabled: true
+  # Códigos de tienda, los mismos que en config/stores/*.yaml
+  tiendas: [huntercard]
+  # Tipos que se añaden a `telegram.publish` mientras dure, y solo para esas
+  # tiendas. Las bajadas de precio siguen pasando por sus filtros de siempre.
+  publicar: [new_product]
+  # AAAA-MM-DD, hora de Chile. Vacío = hasta que se apague a mano.
+  hasta: ""
+
+# ---------------------------------------------------------------------------
 # Membresías del grupo de pago
 #
 # El cobro NO pasa por aquí. Tú recibes la transferencia y apruebas la entrada

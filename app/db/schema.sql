@@ -472,3 +472,28 @@ CREATE TABLE IF NOT EXISTS miembros (
     updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_miembros_vence ON miembros(estado, vence_at);
+
+-- ---------------------------------------------------------------------------
+-- Vigilancia de enlaces sueltos
+--
+-- Fuera del catálogo normal: aquí van direcciones concretas que se miran una a
+-- una, sin recorrer la tienda entera. Sirve para una preventa anunciada, donde
+-- lo que importa es el minuto en que la ficha se puede comprar, no el precio
+-- medio del mercado.
+--
+-- La clave es la propia dirección, y se guarda el ÚLTIMO estado conocido para
+-- poder contar solo lo que cambia: sin esto, mirar cada hora sería anunciar
+-- cada hora lo mismo.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vigilancia (
+    url          TEXT PRIMARY KEY,
+    etiqueta     TEXT,                          -- nombre a mano, opcional
+    nombre       TEXT,                          -- el que declara la tienda
+    price        REAL,
+    stock_status TEXT,                          -- in_stock | out_of_stock | preorder | unknown
+    http_status  INTEGER,                       -- 404 mientras la ficha no existe
+    image_url    TEXT,
+    primera_vez  TEXT NOT NULL DEFAULT (datetime('now')),
+    visto_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    avisado_at   TEXT
+);
