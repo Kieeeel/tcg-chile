@@ -19,6 +19,27 @@
 
 enabled: true
 
+# ---------------------------------------------------------------------------
+# «Sin novedad»
+#
+# Cuando la revisión no encuentra ningún cambio, decirlo igualmente: así se
+# nota que el bot sigue vivo y mirando, en vez de parecer que se cayó.
+#
+# OJO con `cada_horas`. La revisión va cada cuarto de hora; mandarlo en cada
+# pasada serían casi cien mensajes al día, el grupo lo silenciaría, y con él
+# silenciaría también el aviso que sí importa. Con 3 salen unos cinco al día.
+# Si de verdad lo quieres en cada revisión, pon `cada_horas: 0`.
+#
+# Un aviso de verdad reinicia la cuenta: no se dice «sin novedad» justo
+# después de haber contado algo.
+# ---------------------------------------------------------------------------
+sin_novedad:
+  enabled: true
+  cada_horas: 3
+  # Franja horaria de Chile. De madrugada no lo lee nadie y solo molesta.
+  # Sin esta línea se usa la del relleno en settings.yaml.
+  franja: [9, 22]
+
 # Cada línea, una dirección. Con `etiqueta` para leerlo cómodo aquí; si no se
 # pone, se usa el nombre que declare la tienda.
 #

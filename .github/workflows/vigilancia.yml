@@ -1,0 +1,48 @@
+name: Vigilar enlaces (temporal)
+
+# Cada cuarto de hora, mira las direcciones de config/vigilancia.yaml. No
+# recorre ninguna tienda ni toca el catálogo: son cinco peticiones sueltas y
+# una comparación con el estado anterior, así que sale por unos segundos.
+#
+# Va aparte del flujo de preventa a propósito. Ese recorre Hunter Card TCG
+# entero y eso sí conviene dejarlo cada hora; esto es lo que tiene que ir
+# rápido, porque una preventa se agota en minutos.
+#
+# Aviso sobre los horarios: GitHub no cumple los `cron` cortos. Con `*/15`
+# escrito aquí, en la práctica salen unas dos o tres revisiones por hora, no
+# cuatro, y en horas punta menos. No hay forma de arreglarlo desde el
+# repositorio; para llegar antes haría falta una máquina propia encendida.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  # Dos revisiones a la vez leerían el mismo estado anterior y anunciarían el
+  # mismo cambio dos veces. Si una se atasca, la siguiente la reemplaza: vale
+  # más perder una revisión que mandar el aviso duplicado.
+  group: vigilancia
+  cancel-in-progress: true
+
+jobs:
+  vigilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Mirar los enlaces vigilados
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python run.py --vigilar

@@ -1,12 +1,14 @@
 name: Preventa (temporal)
 
-# Flujo TEMPORAL para un lanzamiento anunciado. Cada hora hace tres cosas:
+# Flujo TEMPORAL para un lanzamiento anunciado. Cada hora hace dos cosas:
 #
 #   1. Recorre solo Hunter Card TCG. Una tienda sola tarda menos de un minuto,
 #      así que se puede mirar cada hora sin cargar nada; el recorrido completo
 #      de las veinticinco sigue yendo aparte, cada cuatro horas.
-#   2. Mira los enlaces de config/vigilancia.yaml, uno a uno.
-#   3. Publica lo que haya salido, sin esperar al turno de `publicar.yml`.
+#   2. Publica lo que haya salido, sin esperar al turno de `publicar.yml`.
+#
+# Los enlaces vigilados van en `vigilancia.yml`, cada cuarto de hora: eso
+# tiene que ir rápido y no depende de recorrer ninguna tienda.
 #
 # Cuando pase el lanzamiento se borra este archivo y se pone
 # `preventa.enabled: false` en config/settings.yaml. No hay nada más que
@@ -48,16 +50,6 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
         run: python run.py --update --store huntercard
-
-      - name: Mirar los enlaces vigilados
-        # Aunque el scraping falle: un enlace vigilado puede estar en otra
-        # tienda, y es justo lo que no conviene perderse.
-        if: always()
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python run.py --vigilar
 
       - name: Publicar lo que haya salido
         if: always()

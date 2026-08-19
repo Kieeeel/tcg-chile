@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import html
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
@@ -463,6 +464,99 @@ def _mensaje(enlace: Dict[str, Any], ahora: Dict[str, Any],
 
 
 # ---------------------------------------------------------------------------
+# «Sin novedad»
+# ---------------------------------------------------------------------------
+# Dónde se apunta cuándo se mandó el último. Va en la base y no en un archivo
+# porque cada ejecución de GitHub arranca en una máquina limpia.
+CLAVE_SIN_NOVEDAD = "vigilancia.ultimo_sin_novedad"
+
+
+def _opciones_sin_novedad() -> Dict[str, Any]:
+    import yaml
+
+    ruta = settings.CONFIG_DIR / "vigilancia.yaml"
+    if not ruta.exists():
+        return {}
+    with ruta.open("r", encoding="utf-8") as fh:
+        datos = yaml.safe_load(fh) or {}
+    return dict(datos.get("sin_novedad") or {})
+
+
+def _resumen(lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]]) -> str:
+    """Una línea con en qué estado está cada cosa vigilada."""
+    disponibles = sum(1 for _, e in lecturas if (e.get("stock") in COMPRABLE))
+    sin_ficha = sum(1 for _, e in lecturas
+                    if e.get("http") and int(e["http"]) >= 400)
+    agotados = len(lecturas) - disponibles - sin_ficha
+
+    trozos = []
+    if disponibles:
+        trozos.append(f"{disponibles} a la venta")
+    if agotados:
+        trozos.append(f"{agotados} agotado{'s' if agotados != 1 else ''}")
+    if sin_ficha:
+        trozos.append(f"{sin_ficha} sin publicar")
+    return ", ".join(trozos) or "sin datos"
+
+
+async def _sin_novedad(lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]],
+                       simulacion: bool) -> bool:
+    """Avisa de que se sigue mirando y no ha cambiado nada.
+
+    Con la revisión cada cuarto de hora, mandarlo en cada pasada serían casi
+    cien mensajes al día y el grupo acabaría silenciado, que es la forma más
+    segura de que nadie vea el aviso que sí importa. Por eso va con su propio
+    ritmo (`cada_horas`) y solo de día: el reloj que cuenta es el del último
+    mensaje, así que una novedad de verdad también reinicia la cuenta.
+    """
+    from app.services import notify
+
+    opciones = _opciones_sin_novedad()
+    if not opciones.get("enabled") or not lecturas:
+        return False
+
+    ahora = notify._ahora_en_chile()
+    franja = opciones.get("franja") or notify.config().get("destacado_franja") or [9, 22]
+    if not (int(franja[0]) <= ahora.hour <= int(franja[1])):
+        return False
+
+    cada = float(opciones.get("cada_horas", 3) or 0)
+    ultimo = settings.get(CLAVE_SIN_NOVEDAD)
+    if cada > 0 and ultimo:
+        try:
+            anterior = datetime.fromisoformat(str(ultimo))
+        except (TypeError, ValueError):
+            anterior = None
+        if anterior is not None:
+            transcurridas = (datetime.now(timezone.utc) - anterior).total_seconds() / 3600
+            if transcurridas < cada:
+                print(f"[vigilancia] Sin novedad, pero no toca decirlo "
+                      f"(hace {transcurridas:.1f} h del último; cada {cada} h)",
+                      flush=True)
+                return False
+
+    texto = "\n".join([
+        "🔍 <b>SIN NOVEDAD</b>",
+        f"{len(lecturas)} producto{'s' if len(lecturas) != 1 else ''} en "
+        f"vigilancia · {_resumen(lecturas)}",
+        f"Última revisión · {ahora:%H:%M}",
+    ])
+    if simulacion:
+        log("info", "vigilancia", f"[simulación] {texto}")
+        return False
+
+    try:
+        await notify.enviar(texto)
+    except Exception as exc:  # noqa: BLE001
+        log("warn", "vigilancia", f"No se pudo mandar el «sin novedad»: {exc}")
+        return False
+
+    settings.save_override(CLAVE_SIN_NOVEDAD,
+                           datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    return True
+
+
+# ---------------------------------------------------------------------------
 # La pasada
 # ---------------------------------------------------------------------------
 async def revisar() -> Dict[str, Any]:
@@ -494,32 +588,62 @@ async def revisar() -> Dict[str, Any]:
     avisos = 0
     for enlace, estado in lecturas:
         cambio = _cambio(previos.get(enlace["url"]), estado)
-        es_nuevo = enlace["url"] not in previos
-        _guardar(enlace, estado, avisado=bool(cambio))
 
-        if es_nuevo:
+        if enlace["url"] not in previos:
             log("info", "vigilancia",
                 f"Enlace nuevo en la lista: {enlace['url']} "
                 f"(estado inicial: {estado.get('stock') or 'sin ficha'}). "
                 f"A partir de la próxima pasada se avisa de lo que cambie.")
+
         if not cambio:
+            _guardar(enlace, estado, avisado=False)
             continue
 
         texto = _mensaje(enlace, estado, cambio)
         if simulacion or not encendido:
             log("info", "vigilancia", f"[simulación] {texto}")
+            _guardar(enlace, estado, avisado=False)
             continue
+
+        # El estado se apunta DESPUÉS de enviar, y solo si el envío sirvió de
+        # algo. Guardándolo antes, un mensaje que no llegara se perdía para
+        # siempre: la próxima pasada ya vería el estado nuevo y no tendría nada
+        # que contar. Y «ya se puede comprar» es justo el aviso que no se puede
+        # perder.
         try:
             await notify.enviar(texto, estado.get("imagen") if con_imagen else None)
         except notify.TelegramRechazo as exc:
             log("warn", "vigilancia", f"No se pudo anunciar {enlace['url']}: {exc}")
+            if exc.permanente:
+                # Insistir no va a cambiar nada —HTML mal formado, una foto que
+                # Telegram no puede descargar—, así que se apunta y se sigue.
+                # Si no, se reintentaría cada cuarto de hora para siempre.
+                _guardar(enlace, estado, avisado=False)
             continue
+        except Exception as exc:  # noqa: BLE001
+            # Un corte de red al enviar. NO se guarda: la próxima pasada lo
+            # vuelve a intentar. Y se captura aquí para que un enlace no
+            # impida mirar los demás.
+            log("warn", "vigilancia", f"No se pudo anunciar {enlace['url']}: {exc}")
+            continue
+
+        _guardar(enlace, estado, avisado=True)
         avisos += 1
         log("info", "vigilancia", f"{cambio['titular']}: {enlace['url']}")
         if pausa:
             await asyncio.sleep(pausa)
 
-    return {"enlaces": len(lista), "avisos": avisos}
+    callado = False
+    if avisos:
+        # Una novedad de verdad también reinicia la cuenta: acabar de anunciar
+        # algo y soltar «sin novedad» cinco minutos después sería absurdo.
+        settings.save_override(CLAVE_SIN_NOVEDAD,
+                               datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    else:
+        callado = await _sin_novedad(lecturas, simulacion or not encendido)
+
+    return {"enlaces": len(lista), "avisos": avisos, "sin_novedad": callado}
+
 
 
 def _guardar(enlace: Dict[str, Any], estado: Dict[str, Any], avisado: bool) -> None:
