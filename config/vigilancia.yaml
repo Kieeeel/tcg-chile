@@ -25,17 +25,17 @@ enabled: true
 # Cuando la revisión no encuentra ningún cambio, decirlo igualmente: así se
 # nota que el bot sigue vivo y mirando, en vez de parecer que se cayó.
 #
-# OJO con `cada_horas`. La revisión va cada cuarto de hora; mandarlo en cada
-# pasada serían casi cien mensajes al día, el grupo lo silenciaría, y con él
-# silenciaría también el aviso que sí importa. Con 3 salen unos cinco al día.
-# Si de verdad lo quieres en cada revisión, pon `cada_horas: 0`.
+# `cada_horas` es el ritmo de este mensaje, NO el de las revisiones: se sigue
+# mirando cada cuarto de hora, y un cambio de verdad sale en cuanto se ve. Esto
+# solo marca cada cuánto se dice que no ha pasado nada. Con 1 salen catorce al
+# día dentro de la franja. Si lo quieres en cada revisión, pon `cada_horas: 0`.
 #
 # Un aviso de verdad reinicia la cuenta: no se dice «sin novedad» justo
 # después de haber contado algo.
 # ---------------------------------------------------------------------------
 sin_novedad:
   enabled: true
-  cada_horas: 3
+  cada_horas: 1
   # Franja horaria de Chile. De madrugada no lo lee nadie y solo molesta.
   # Sin esta línea se usa la del relleno en settings.yaml.
   franja: [9, 22]

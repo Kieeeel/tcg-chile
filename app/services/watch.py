@@ -470,6 +470,14 @@ def _mensaje(enlace: Dict[str, Any], ahora: Dict[str, Any],
 # porque cada ejecución de GitHub arranca en una máquina limpia.
 CLAVE_SIN_NOVEDAD = "vigilancia.ultimo_sin_novedad"
 
+# Holgura al comparar el tiempo transcurrido, en horas (5 minutos).
+#
+# Sin ella, «cada hora» acaba siendo cada hora y veinte. Las revisiones no caen
+# donde una querría —GitHub no cumple los cron cortos—, así que la que toca a
+# los 57 minutos se descartaría por tres, y habría que esperar a la siguiente,
+# que igual llega veinte minutos más tarde. El error se acumula día tras día.
+_MARGEN = 5 / 60
+
 
 def _opciones_sin_novedad() -> Dict[str, Any]:
     import yaml
@@ -520,7 +528,7 @@ async def _sin_novedad(lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]],
     if not (int(franja[0]) <= ahora.hour <= int(franja[1])):
         return False
 
-    cada = float(opciones.get("cada_horas", 3) or 0)
+    cada = float(opciones.get("cada_horas", 1) or 0)
     ultimo = settings.get(CLAVE_SIN_NOVEDAD)
     if cada > 0 and ultimo:
         try:
@@ -529,7 +537,7 @@ async def _sin_novedad(lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]],
             anterior = None
         if anterior is not None:
             transcurridas = (datetime.now(timezone.utc) - anterior).total_seconds() / 3600
-            if transcurridas < cada:
+            if transcurridas < cada - _MARGEN:
                 print(f"[vigilancia] Sin novedad, pero no toca decirlo "
                       f"(hace {transcurridas:.1f} h del último; cada {cada} h)",
                       flush=True)
