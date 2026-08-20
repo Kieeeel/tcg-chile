@@ -15,7 +15,12 @@ app:
   timezone: "America/Santiago"
 
 scheduler:
-  enabled: true
+  # EN PAUSA (20-08-2026), igual que el flujo `scrape.yml` de GitHub. Esto es
+  # lo que recorre las tiendas al tener la aplicación abierta en local; se
+  # apaga para que abrir la web no relance por detrás lo que se acaba de
+  # parar. La vigilancia de enlaces no pasa por aquí y sigue funcionando.
+  # Para reactivarlo: `true`.
+  enabled: false
   # Valores admitidos: 1, 2, 3, 4, 6, 12, 24 (horas).
   interval_hours: 4
   # Ejecutar una actualización apenas arranca la aplicación.
@@ -98,6 +103,10 @@ telegram:
   # Si hay un scraping recién arrancado, el relleno espera: en unos minutos
   # puede haber ofertas de verdad y sería absurdo hablar justo antes.
   destacado_esperar_scraping_min: 20
+  # Y si el catálogo lleva más de esto sin actualizarse, tampoco se publica:
+  # sería una comparación de precios viejos contada como si fuera de hoy.
+  # Importa con el scraping en pausa, que es como está ahora.
+  destacado_max_antiguedad_horas: 24
   # false -> un mensaje con la lista de todas las ofertas.
   # true  -> un mensaje por oferta, más fáciles de reenviar y comentar sueltos,
   #          pero llenan más el grupo. Con `max_per_run: 8` son 8 mensajes.

@@ -621,6 +621,26 @@ def _es_momento_de_relleno() -> bool:
     if not (desde <= ahora.hour <= hasta):
         return False
 
+    # Con el catálogo parado, una «oportunidad» sería una comparación de
+    # precios viejos presentada como si fuera de hoy. Manda a alguien a una
+    # tienda a por un precio que ya no existe, que es peor que callar.
+    #
+    # Hace falta porque el flujo de scraping se puede pausar —está pausado
+    # desde el 20-08-2026— mientras el de publicar sigue vivo para atender las
+    # membresías. Sin este freno, el grupo seguiría recibiendo ofertas de un
+    # catálogo congelado sin que nada lo delatara.
+    caducidad = float(cfg.get("destacado_max_antiguedad_horas", 24) or 0)
+    if caducidad > 0:
+        fila = query_one("SELECT MAX(started_at) AS ultimo FROM scrape_runs")
+        ultimo = fila["ultimo"] if fila else None
+        horas = _horas_desde(ultimo)
+        if horas is None or horas > caducidad:
+            cuanto = f"hace {horas:.0f} h" if horas is not None else "nunca"
+            print(f"[telegram] No se publica oportunidad: el catálogo está sin "
+                  f"actualizar ({cuanto}; el tope son {caducidad:.0f} h). "
+                  f"Los precios que compararía ya no son de fiar.", flush=True)
+            return False
+
     espera = float(cfg.get("destacado_min_horas_entre", 1) or 0)
     if espera > 0:
         transcurridas = _horas_desde_ultimo_envio()
@@ -642,6 +662,20 @@ def _es_momento_de_relleno() -> bool:
     return True
 
 
+def _horas_desde(valor: Any) -> Optional[float]:
+    """Horas transcurridas desde una fecha de la base, o None si no se entiende.
+
+    Las fechas se guardan como TEXTO en UTC, sin zona, en los dos motores.
+    """
+    if not valor:
+        return None
+    try:
+        cuando = datetime.fromisoformat(str(valor)).replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+    return (datetime.now(timezone.utc) - cuando).total_seconds() / 3600
+
+
 def _horas_desde_ultimo_envio() -> Optional[float]:
     """Cuánto hace del último mensaje, sea una oferta o un destacado."""
     fila = query_one(
@@ -651,14 +685,7 @@ def _horas_desde_ultimo_envio() -> Optional[float]:
                SELECT MAX(sent_at) AS cuando FROM telegram_destacados
            ) AS todos"""
     )
-    valor = fila["ultimo"] if fila else None
-    if not valor:
-        return None
-    try:
-        ultimo = datetime.fromisoformat(str(valor)).replace(tzinfo=timezone.utc)
-    except (TypeError, ValueError):
-        return None
-    return (datetime.now(timezone.utc) - ultimo).total_seconds() / 3600
+    return _horas_desde(fila["ultimo"] if fila else None)
 
 
 async def _publicar_destacado(forzar_envio: bool) -> Dict[str, Any]:

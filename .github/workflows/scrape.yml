@@ -1,12 +1,24 @@
 name: Actualizar precios
 
-# Cada 4 horas. Los horarios de GitHub NO son puntuales: se retrasan bastante
-# en horas punta. Para un intervalo de 4 h da igual, pero conviene saberlo.
+# ===========================================================================
+# EN PAUSA (20-08-2026). El horario está comentado a propósito.
 #
-# GitHub desactiva los cron de repositorios sin actividad durante 60 días;
-# basta con un commit —o pulsar «Run workflow»— para reactivarlos.
+# El comparador de las veinticinco tiendas no se está usando: por ahora todo
+# el interés está en los enlaces vigilados del 30 aniversario, que van por
+# `vigilancia.yml` y no dependen de esto.
+#
+# PARA REACTIVARLO: quitar el `#` de las dos líneas de `schedule` y `cron` de
+# abajo. Nada más. El botón «Run workflow» sigue disponible entretanto, por si
+# quieres una pasada suelta sin volver a encender el horario.
+#
+# QUÉ SE PIERDE MIENTRAS TANTO: los precios de la web envejecen —lo que se ve
+# ahí es la última pasada, la del 20 de agosto— y no se detectan bajadas ni
+# vueltas a stock del catálogo. Al reactivarlo, la primera pasada generará de
+# golpe todos los cambios acumulados; conviene lanzarla a mano y, si el bot
+# empieza a anunciar cosas viejas, `scripts/silenciar_eventos.py` los calla.
+# ===========================================================================
 on:
-  schedule:
+  # schedule:
     # Los horarios de GitHub son SIEMPRE en UTC, no admiten zona horaria.
     # Chile va cuatro horas por detrás en invierno, así que estas cinco horas
     # UTC caen en Chile a las 20:00, 00:00, 08:00, 12:00 y 16:00.
@@ -14,7 +26,7 @@ on:
     # De septiembre a abril, con el horario de verano chileno, se corren una
     # hora: 21:00, 01:00, 09:00, 13:00 y 17:00. GitHub no sabe de cambios de
     # hora; si molesta, se ajustan los números a mano dos veces al año.
-    - cron: "0 0,4,12,16,20 * * *"
+    # - cron: "0 0,4,12,16,20 * * *"
   workflow_dispatch:          # y a mano cuando quieras
 
 concurrency:
