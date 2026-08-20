@@ -24,6 +24,10 @@ def main() -> int:
     parser.add_argument("--store", action="append", help="limita --update a estas tiendas")
     parser.add_argument("--vigilar", action="store_true",
                         help="mira los enlaces de config/vigilancia.yaml y termina")
+    parser.add_argument("--durante", type=int, default=0, metavar="MINUTOS",
+                        help="con --vigilar: sigue mirando en bucle este rato")
+    parser.add_argument("--cada", type=int, default=60, metavar="SEGUNDOS",
+                        help="con --durante: espera entre vueltas (por defecto 60)")
     args = parser.parse_args()
 
     from app import settings
@@ -40,7 +44,16 @@ def main() -> int:
         from app.services import watch
 
         try:
-            resultado = asyncio.run(watch.revisar())
+            if args.durante > 0:
+                # Un solo turno concedido por GitHub se estira en muchas
+                # revisiones. Sin esto, el cron marca cada cuánto se mira; con
+                # esto solo marca cada cuánto se releva el turno.
+                resultado = asyncio.run(watch.vigilar_durante(args.durante, args.cada))
+            else:
+                resultado = asyncio.run(watch.revisar())
+        except KeyboardInterrupt:
+            print("\nVigilancia interrumpida.\n")
+            return 0
         except Exception as exc:  # noqa: BLE001
             log("warn", "vigilancia", f"No se pudo completar: {exc}")
             print(f"\nVigilancia: falló: {exc}\n")

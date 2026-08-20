@@ -7,7 +7,7 @@ puede comprar.
 
 Aquí se lee una lista corta de direcciones (config/vigilancia.yaml), se mira
 cada una tal cual, y se avisa SOLO cuando algo cambia respecto a la última vez.
-Mirar cada hora no es hablar cada hora: mientras la ficha siga igual, calla.
+Mirar cada minuto no es hablar cada minuto: mientras siga igual, calla.
 
 No hace falta que la tienda esté configurada en config/stores/. El precio y la
 disponibilidad salen de donde los declara la propia tienda —la API de
@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import html
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
@@ -312,9 +312,18 @@ async def _leer_html(cliente: httpx.AsyncClient, url: str) -> Dict[str, Any]:
         return {"http": None, "error": str(exc)}
 
     if respuesta.status_code >= 400:
-        # 404 no es un fallo: es la respuesta esperada mientras la ficha de una
-        # preventa todavía no está publicada.
-        return {"http": respuesta.status_code}
+        # 404 y 410 no son fallos: son la respuesta esperada mientras la ficha
+        # de una preventa todavía no está publicada.
+        if respuesta.status_code in (404, 410):
+            return {"http": respuesta.status_code}
+        # Lo demás —403 de un antibot, 429 por ir muy seguido, un 502 del
+        # servidor— significa «no he podido leerla», NO «no existe». La
+        # diferencia importa: guardarlo como si no existiera haría que, al
+        # volver a responder, se anunciara «YA APARECIÓ LA FICHA» de algo que
+        # llevaba ahí todo el tiempo. Con una revisión por minuto, un bloqueo
+        # temporal de una tienda soltaría un aviso falso en cuanto se pasara.
+        return {"http": respuesta.status_code,
+                "error": f"la tienda respondió {respuesta.status_code}"}
 
     texto = respuesta.text
     sopa = soup_of(texto)
@@ -390,8 +399,8 @@ def _cambio(antes: Optional[Dict[str, Any]],
             ahora: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Compara con la última vez y decide si hay algo que contar.
 
-    Devuelve None cuando no lo hay, que es el caso normal: se mira cada hora y
-    casi siempre está todo igual.
+    Devuelve None cuando no lo hay, que es el caso normal: se mira cada minuto
+    y casi siempre está todo igual.
 
     Un enlace recién puesto en la lista NO se anuncia. Añadir algo que lleva
     meses a la venta no es noticia, y si no fuera así, pegar una dirección
@@ -492,10 +501,15 @@ def _opciones_sin_novedad() -> Dict[str, Any]:
 
 def _resumen(lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]]) -> str:
     """Una línea con en qué estado está cada cosa vigilada."""
-    disponibles = sum(1 for _, e in lecturas if (e.get("stock") in COMPRABLE))
+    # «Sin publicar» y «no se pudo leer» se cuentan aparte a propósito: son
+    # cosas distintas y confundirlas engaña. Una tienda que nos bloquea no
+    # significa que el producto haya dejado de existir.
+    ilegibles = sum(1 for _, e in lecturas if e.get("error"))
+    disponibles = sum(1 for _, e in lecturas
+                      if not e.get("error") and e.get("stock") in COMPRABLE)
     sin_ficha = sum(1 for _, e in lecturas
-                    if e.get("http") and int(e["http"]) >= 400)
-    agotados = len(lecturas) - disponibles - sin_ficha
+                    if not e.get("error") and e.get("http") and int(e["http"]) >= 400)
+    agotados = len(lecturas) - disponibles - sin_ficha - ilegibles
 
     trozos = []
     if disponibles:
@@ -504,6 +518,8 @@ def _resumen(lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]]) -> str:
         trozos.append(f"{agotados} agotado{'s' if agotados != 1 else ''}")
     if sin_ficha:
         trozos.append(f"{sin_ficha} sin publicar")
+    if ilegibles:
+        trozos.append(f"{ilegibles} sin poder leer")
     return ", ".join(trozos) or "sin datos"
 
 
@@ -511,8 +527,8 @@ async def _sin_novedad(lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]],
                        simulacion: bool) -> bool:
     """Avisa de que se sigue mirando y no ha cambiado nada.
 
-    Con la revisión cada cuarto de hora, mandarlo en cada pasada serían casi
-    cien mensajes al día y el grupo acabaría silenciado, que es la forma más
+    Con la revisión cada minuto, mandarlo en cada pasada serían más de mil
+    mensajes al día y el grupo acabaría silenciado, que es la forma más
     segura de que nadie vea el aviso que sí importa. Por eso va con su propio
     ritmo (`cada_horas`) y solo de día: el reloj que cuenta es el del último
     mensaje, así que una novedad de verdad también reinicia la cuenta.
@@ -625,7 +641,7 @@ async def revisar() -> Dict[str, Any]:
             if exc.permanente:
                 # Insistir no va a cambiar nada —HTML mal formado, una foto que
                 # Telegram no puede descargar—, así que se apunta y se sigue.
-                # Si no, se reintentaría cada cuarto de hora para siempre.
+                # Si no, se reintentaría cada minuto para siempre.
                 _guardar(enlace, estado, avisado=False)
             continue
         except Exception as exc:  # noqa: BLE001
@@ -651,6 +667,58 @@ async def revisar() -> Dict[str, Any]:
         callado = await _sin_novedad(lecturas, simulacion or not encendido)
 
     return {"enlaces": len(lista), "avisos": avisos, "sin_novedad": callado}
+
+
+async def vigilar_durante(minutos: int, cada: int = 60) -> Dict[str, Any]:
+    """Repite la revisión sin salirse del proceso, durante un rato largo.
+
+    Existe por una razón concreta y medida: GitHub NO cumple los cron cortos.
+    Con `*/15` escrito en el flujo, en 24 horas reales salieron 35 ejecuciones
+    en vez de 95 —el 37 %—, con huecos de entre 26 y 85 minutos. El trabajo en
+    sí tarda 46 segundos. Es decir, el retraso no lo pone el código ni las
+    tiendas: lo pone la cola de GitHub.
+
+    Un proceso que se queda mirando convierte UNA ejecución concedida en un
+    par de horas de vigilancia de verdad. El cron deja de marcar cada cuánto se
+    mira y pasa a marcar solo cada cuánto se releva el turno.
+
+    Cada vuelta va en su propio try: un corte de red, o una conexión que el
+    pooler de Supabase cierra por vieja, no puede llevarse por delante las dos
+    horas que quedan.
+    """
+    fin = datetime.now(timezone.utc) + timedelta(minutes=max(1, minutos))
+    vueltas = avisos = fallos = 0
+    ultimo: Dict[str, Any] = {}
+
+    while datetime.now(timezone.utc) < fin:
+        comienzo = datetime.now(timezone.utc)
+        vueltas += 1
+        try:
+            ultimo = await revisar()
+            avisos += int(ultimo.get("avisos") or 0)
+        except Exception as exc:  # noqa: BLE001
+            fallos += 1
+            log("warn", "vigilancia", f"Vuelta {vueltas} fallida: {exc}")
+            # La conexión puede haberse quedado inservible. Se cierra para que
+            # la siguiente vuelta abra una nueva en vez de repetir el error.
+            try:
+                from app.db.database import close_thread_connection
+
+                close_thread_connection()
+            except Exception:  # noqa: BLE001
+                pass
+
+        restante = (fin - datetime.now(timezone.utc)).total_seconds()
+        if restante <= 0:
+            break
+        # Se descuenta lo que costó la vuelta: si leer las fichas tardó 13
+        # segundos, la espera es de 47 y no de 60. Así el ritmo es el pedido y
+        # no el pedido más lo que tarde.
+        gastado = (datetime.now(timezone.utc) - comienzo).total_seconds()
+        await asyncio.sleep(max(1.0, min(cada - gastado, restante)))
+
+    return {"vueltas": vueltas, "avisos": avisos, "fallos": fallos,
+            "enlaces": ultimo.get("enlaces", 0)}
 
 
 

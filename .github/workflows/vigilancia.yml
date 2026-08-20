@@ -1,33 +1,55 @@
 name: Vigilar enlaces (temporal)
 
-# Cada cuarto de hora, mira las direcciones de config/vigilancia.yaml. No
-# recorre ninguna tienda ni toca el catálogo: son cinco peticiones sueltas y
-# una comparación con el estado anterior, así que sale por unos segundos.
+# Mira las direcciones de config/vigilancia.yaml y avisa de lo que cambie.
 #
-# Va aparte del flujo de preventa a propósito. Ese recorre Hunter Card TCG
-# entero y eso sí conviene dejarlo cada hora; esto es lo que tiene que ir
-# rápido, porque una preventa se agota en minutos.
+# POR QUÉ ESTO NO ES UN CRON NORMAL
 #
-# Aviso sobre los horarios: GitHub no cumple los `cron` cortos. Con `*/15`
-# escrito aquí, en la práctica salen unas dos o tres revisiones por hora, no
-# cuatro, y en horas punta menos. No hay forma de arreglarlo desde el
-# repositorio; para llegar antes haría falta una máquina propia encendida.
+# La primera versión pedía `*/15` y confiaba en que GitHub lo cumpliera. No lo
+# cumple. Medido sobre 24 horas reales de este mismo repositorio:
+#
+#     programado   cada 15 min  ->  95 ejecuciones
+#     real                          35 ejecuciones  (37 %)
+#     hueco entre pasadas           26 min mínimo, 37 mediana, 85 máximo
+#     duración del trabajo          46 s
+#
+# Es decir: el retraso no lo ponía el código —46 segundos— ni las tiendas
+# —ninguna cachea, todas responden en vivo—, sino la cola de GitHub. Un
+# producto que se ponía a la venta justo después de una pasada podía tardar
+# hora y media en anunciarse, y para entonces ya estaba agotado.
+#
+# La solución es no depender del cron para el ritmo. El trabajo se queda
+# mirando en bucle durante dos horas, revisando cada minuto. Así el `cron`
+# deja de marcar cada cuánto se mira y pasa a marcar solo cada cuánto se
+# releva el turno; y como el turno dura más que el peor hueco medido (85 min),
+# siempre hay alguien mirando.
+#
+# `cancel-in-progress: true` es justo lo que hace falta aquí: cuando GitHub
+# concede el turno siguiente, el que estaba corriendo se retira y el nuevo
+# toma el relevo. Nunca hay dos a la vez ni un hueco entre medias.
 on:
   schedule:
+    # Se pide cada cuarto de hora aunque sepamos que no se cumple: cuanto más
+    # a menudo se pida, antes llega el relevo. Lo que ya no depende de esto es
+    # cada cuánto se revisa.
     - cron: "*/15 * * * *"
   workflow_dispatch:
+    inputs:
+      durante:
+        description: "Minutos vigilando"
+        default: "110"
+      cada:
+        description: "Segundos entre revisiones"
+        default: "60"
 
 concurrency:
-  # Dos revisiones a la vez leerían el mismo estado anterior y anunciarían el
-  # mismo cambio dos veces. Si una se atasca, la siguiente la reemplaza: vale
-  # más perder una revisión que mandar el aviso duplicado.
   group: vigilancia
   cancel-in-progress: true
 
 jobs:
   vigilar:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Algo más que el bucle, para que le dé tiempo a cerrar por su cuenta.
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
@@ -40,9 +62,11 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Mirar los enlaces vigilados
+      - name: Vigilar
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python run.py --vigilar
+          DURANTE: ${{ github.event.inputs.durante || '110' }}
+          CADA: ${{ github.event.inputs.cada || '60' }}
+        run: python run.py --vigilar --durante "$DURANTE" --cada "$CADA"

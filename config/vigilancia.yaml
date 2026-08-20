@@ -2,7 +2,7 @@
 # Vigilancia de enlaces concretos
 #
 # El scraping normal recorre categorías enteras cada cuatro horas. Esto es
-# otra cosa: una lista corta de direcciones que se miran UNA A UNA cada hora,
+# otra cosa: una lista corta de direcciones que se miran UNA A UNA cada minuto,
 # para no llegar tarde a una preventa anunciada.
 #
 # El bot avisa al grupo cuando esa ficha cambia de estado:
@@ -10,7 +10,7 @@
 #   · se puede comprar (pasa a «en stock» o «preventa»)
 #   · cambia de precio
 #
-# Mientras nada cambie, calla. Mirar cada hora no significa hablar cada hora.
+# Mientras nada cambie, calla. Mirar cada minuto no es hablar cada minuto.
 #
 # No hace falta que la tienda esté configurada en config/stores/: se lee la
 # ficha directamente. Funciona con cualquier tienda que declare el precio en
@@ -26,7 +26,7 @@ enabled: true
 # nota que el bot sigue vivo y mirando, en vez de parecer que se cayó.
 #
 # `cada_horas` es el ritmo de este mensaje, NO el de las revisiones: se sigue
-# mirando cada cuarto de hora, y un cambio de verdad sale en cuanto se ve. Esto
+# mirando cada minuto, y un cambio de verdad sale en cuanto se ve. Esto
 # solo marca cada cuánto se dice que no ha pasado nada. Con 1 salen catorce al
 # día dentro de la franja. Si lo quieres en cada revisión, pon `cada_horas: 0`.
 #
