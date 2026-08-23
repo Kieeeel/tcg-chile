@@ -15,12 +15,7 @@ app:
   timezone: "America/Santiago"
 
 scheduler:
-  # EN PAUSA (20-08-2026), igual que el flujo `scrape.yml` de GitHub. Esto es
-  # lo que recorre las tiendas al tener la aplicación abierta en local; se
-  # apaga para que abrir la web no relance por detrás lo que se acaba de
-  # parar. La vigilancia de enlaces no pasa por aquí y sigue funcionando.
-  # Para reactivarlo: `true`.
-  enabled: false
+  enabled: true
   # Valores admitidos: 1, 2, 3, 4, 6, 12, 24 (horas).
   interval_hours: 4
   # Ejecutar una actualización apenas arranca la aplicación.
@@ -105,7 +100,7 @@ telegram:
   destacado_esperar_scraping_min: 20
   # Y si el catálogo lleva más de esto sin actualizarse, tampoco se publica:
   # sería una comparación de precios viejos contada como si fuera de hoy.
-  # Importa con el scraping en pausa, que es como está ahora.
+  # Es el seguro para cuando el scraping se pare, por decisión o por avería.
   destacado_max_antiguedad_horas: 24
   # false -> un mensaje con la lista de todas las ofertas.
   # true  -> un mensaje por oferta, más fáciles de reenviar y comentar sueltos,
@@ -136,7 +131,10 @@ telegram:
 # y se apaga solo, que es más fiable que acordarse.
 # ---------------------------------------------------------------------------
 preventa:
-  enabled: true
+  # Apagado: se volvió al funcionamiento normal el 22-08-2026. El bot vuelve a
+  # hablar de las veinticinco tiendas y deja de anunciar productos nuevos.
+  # Encender solo mientras dure un lanzamiento concreto.
+  enabled: false
   # Códigos de tienda, los mismos que en config/stores/*.yaml
   tiendas: [huntercard]
   # Tipos que se añaden a `telegram.publish` mientras dure, y solo para esas
