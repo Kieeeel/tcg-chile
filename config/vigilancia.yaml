@@ -34,7 +34,14 @@ enabled: true
 # después de haber contado algo.
 # ---------------------------------------------------------------------------
 sin_novedad:
-  enabled: true
+  # Apagado el 22-08-2026. La vigilancia sigue igual: se mira cada minuto y un
+  # cambio de verdad se anuncia en cuanto se ve. Lo único que ya no sale es el
+  # resumen periódico diciendo que no ha pasado nada.
+  #
+  # A cambio, el grupo deja de tener señal de vida: si el flujo se cayera, el
+  # silencio se vería igual que un «no hay novedades». Se comprueba en Actions,
+  # o volviendo a poner esto en `true`.
+  enabled: false
   cada_horas: 1
   # Franja horaria de Chile. De madrugada no lo lee nadie y solo molesta.
   # Sin esta línea se usa la del relleno en settings.yaml.
