@@ -98,8 +98,11 @@ enlaces:
     etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Piedra Bruja"
   - url: "https://www.santogames.cl/pokemon-tcg-30th-celebration-ditto-premium-collection-ingles"
     etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Santo Games"
+  # Winterland esconde las dos versiones detrás del mismo enlace, con precios
+  # y stock distintos, y se siguen por separado. Sin etiqueta a propósito: la
+  # que pusiera aquí valdría para una de las dos y mentiría sobre la otra, así
+  # que manda el nombre que declara la tienda.
   - url: "https://www.winterland.cl/product/30th-celebration-ditto-premium-collection"
-    etiqueta: "30 aniversario · Ditto Premium Collection (Inglés) — Winterland"
 
   # --- Booster Bundle (Inglés) ---
   - url: "https://piedrabruja.cl/products/pokemon-tcg-30th-celebration-booster-bundle-ing"

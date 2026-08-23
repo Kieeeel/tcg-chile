@@ -305,79 +305,179 @@ async def _leer_shopify(cliente: httpx.AsyncClient, url: str) -> Optional[Dict[s
     }
 
 
-async def _leer_html(cliente: httpx.AsyncClient, url: str) -> Dict[str, Any]:
+async def _leer_html(cliente: httpx.AsyncClient, url: str) -> List[Dict[str, Any]]:
+    """Devuelve UNA lectura por versión del producto que haya en la ficha."""
     try:
         respuesta = await cliente.get(url, headers=_cabeceras(), timeout=25)
     except httpx.HTTPError as exc:
-        return {"http": None, "error": str(exc)}
+        return [{"http": None, "error": str(exc)}]
 
     if respuesta.status_code >= 400:
         # 404 y 410 no son fallos: son la respuesta esperada mientras la ficha
         # de una preventa todavía no está publicada.
         if respuesta.status_code in (404, 410):
-            return {"http": respuesta.status_code}
+            return [{"http": respuesta.status_code}]
         # Lo demás —403 de un antibot, 429 por ir muy seguido, un 502 del
         # servidor— significa «no he podido leerla», NO «no existe». La
         # diferencia importa: guardarlo como si no existiera haría que, al
         # volver a responder, se anunciara «YA APARECIÓ LA FICHA» de algo que
         # llevaba ahí todo el tiempo. Con una revisión por minuto, un bloqueo
         # temporal de una tienda soltaría un aviso falso en cuanto se pasara.
-        return {"http": respuesta.status_code,
-                "error": f"la tienda respondió {respuesta.status_code}"}
+        return [{"http": respuesta.status_code,
+                 "error": f"la tienda respondió {respuesta.status_code}"}]
 
     texto = respuesta.text
     sopa = soup_of(texto)
-    ficha = product_from_json_ld(extract_json_ld(sopa)) or {}
+    bloques = extract_json_ld(sopa)
 
-    precio = _precio_de_meta(texto)
+    # Hay tiendas que esconden dos productos detrás de una sola dirección: la
+    # misma caja en inglés y en español, cada una con su precio y su stock.
+    # Winterland es así, y quedarse con el primer bloque hacía que el bot
+    # anunciara la versión inglesa —agotada— mientras la española estaba a la
+    # venta. Cuando se reconocen varias, se devuelven todas.
+    variantes = _variantes(bloques, url)
+    if len(variantes) > 1:
+        for variante in variantes:
+            variante["http"] = respuesta.status_code
+            # El nombre identifica la versión y es lo que separa su estado del
+            # de la otra: sin esto las dos compartirían fila y se pisarían.
+            variante["variante"] = variante["nombre"]
+        return variantes
+
+    ficha = variantes[0] if variantes else (product_from_json_ld(bloques) or {})
+
+    # El precio de las etiquetas de la página manda sobre el del JSON-LD, pero
+    # NO cuando se ha identificado la variante: ahí el JSON-LD es de este
+    # producto y la etiqueta og: puede ser de la versión por defecto.
+    precio = ficha.get("precio") if variantes else None
+    if precio is None:
+        precio = _precio_de_meta(texto)
     if precio is None:
         precio = parse_price(str(ficha.get("price") or ""))
 
-    nombre = ficha.get("name")
+    nombre = ficha.get("nombre") or ficha.get("name")
     if not nombre:
         etiqueta = sopa.find("meta", attrs={"property": "og:title"})
         nombre = (etiqueta.get("content") if etiqueta
                   else (sopa.title.get_text(strip=True) if sopa.title else None))
 
-    imagen = ficha.get("image_url")
+    imagen = ficha.get("imagen") or ficha.get("image_url")
     if not imagen:
         etiqueta = sopa.find("meta", attrs={"property": "og:image"})
         imagen = etiqueta.get("content") if etiqueta else None
 
-    return {
+    return [{
         "http": respuesta.status_code,
         "nombre": (str(nombre or "").strip() or None),
         "precio": precio,
-        "stock": _disponibilidad(ficha.get("availability")),
+        "stock": ficha.get("stock") or _disponibilidad(ficha.get("availability")),
         "imagen": imagen,
-    }
+    }]
 
 
-async def leer(cliente: httpx.AsyncClient, url: str) -> Dict[str, Any]:
+def _variantes(bloques: List[Dict[str, Any]], url: str) -> List[Dict[str, Any]]:
+    """Los productos del JSON-LD que son de ESTA ficha, no de las de al lado.
+
+    El filtro es la dirección que declara la propia oferta. Sin él esto sería
+    el error de Samurai TCG otra vez, pero peor: la ficha de Pokestop declara
+    nueve bloques Product y ocho son el carrusel de productos relacionados de
+    abajo. Comprobado contra las tres formas:
+
+        Winterland   2 bloques, los 2 apuntan aquí  -> 2 variantes
+        Pokestop     9 bloques, 1 apunta aquí       -> 1, los otros 8 fuera
+        Samurai      1 bloque                       -> 1
+
+    Un bloque sin dirección no se puede situar, así que no cuenta. Preferimos
+    no responder a responder con el precio del vecino.
+    """
+    salida: List[Dict[str, Any]] = []
+    objetivo = url.split("?")[0].split("#")[0].rstrip("/")
+
+    for bloque in bloques:
+        tipos = bloque.get("@type")
+        tipos = [tipos] if isinstance(tipos, str) else (tipos or [])
+        if not any(str(t).lower() == "product" for t in tipos):
+            continue
+
+        oferta = bloque.get("offers") or {}
+        if isinstance(oferta, list):
+            oferta = oferta[0] if oferta else {}
+        oferta = oferta if isinstance(oferta, dict) else {}
+
+        suya = str(oferta.get("url") or bloque.get("url") or "")
+        if not suya or objetivo not in suya.split("?")[0].rstrip("/"):
+            continue
+
+        imagen = bloque.get("image")
+        if isinstance(imagen, list):
+            imagen = imagen[0] if imagen else None
+        if isinstance(imagen, dict):
+            imagen = imagen.get("url")
+
+        salida.append({
+            "nombre": str(bloque.get("name") or "").strip() or None,
+            "precio": parse_price(str(oferta.get("price")
+                                      or oferta.get("lowPrice") or "")),
+            "stock": _disponibilidad(oferta.get("availability")),
+            "imagen": imagen if isinstance(imagen, str) else None,
+        })
+
+    # Dos bloques con el mismo nombre no son dos versiones, es la misma ficha
+    # declarada dos veces. Pasa con temas que repiten el JSON-LD en la cabecera
+    # y en el cuerpo.
+    vistos = set()
+    unicas = []
+    for v in salida:
+        clave = (v["nombre"] or "").lower()
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        unicas.append(v)
+    return unicas
+
+
+async def leer(cliente: httpx.AsyncClient, url: str) -> List[Dict[str, Any]]:
     """Estado actual de una ficha: nombre, precio y disponibilidad.
 
+    Devuelve una LISTA porque una dirección no siempre es un producto: hay
+    tiendas que venden la versión inglesa y la española detrás del mismo
+    enlace, con precios y stock distintos.
+
     Se prueban primero las dos plataformas que publican un JSON propio, porque
-    ahí el dato viene sin interpretar. El HTML es el último recurso: sirve para
-    cualquier tienda, pero es donde más fácil es leer el precio de la ficha de
-    al lado.
+    ahí el dato viene sin interpretar y ya distingue variantes por su cuenta.
+    El HTML es el último recurso: sirve para cualquier tienda, pero es donde
+    más fácil es leer el precio de la ficha de al lado.
     """
     por_woo = await _leer_woo(cliente, url)
     if por_woo:
-        return _limpiar(por_woo)
+        return [_limpiar(por_woo)]
 
     por_json = await _leer_shopify(cliente, url)
     if por_json and por_json.get("stock") != STOCK_UNKNOWN:
-        return _limpiar(por_json)
+        return [_limpiar(por_json)]
 
-    por_html = await _leer_html(cliente, url)
-    if por_json and not por_html.get("error"):
+    lecturas = await _leer_html(cliente, url)
+    if por_json and len(lecturas) == 1 and not lecturas[0].get("error"):
         # El precio del JSON manda —es el de la variante que pide la
         # dirección, y la etiqueta og: de la página es siempre el de la
         # variante por defecto—, pero la disponibilidad la sabe el HTML.
-        por_json["stock"] = por_html.get("stock") or STOCK_UNKNOWN
-        por_json["imagen"] = por_json.get("imagen") or por_html.get("imagen")
-        return _limpiar(por_json)
-    return _limpiar(por_html)
+        por_json["stock"] = lecturas[0].get("stock") or STOCK_UNKNOWN
+        por_json["imagen"] = por_json.get("imagen") or lecturas[0].get("imagen")
+        return [_limpiar(por_json)]
+    return [_limpiar(l) for l in lecturas]
+
+
+def _clave(url: str, lectura: Dict[str, Any]) -> str:
+    """Con qué nombre se guarda el estado de esta lectura.
+
+    Una ficha con dos versiones necesita dos filas, o compartirían estado y se
+    pisarían: guardar el español borraría lo que sabíamos del inglés y cada
+    vuelta parecería un cambio. El nombre de la versión va detrás de una
+    almohadilla, que es terreno libre: `_normalizar` la quita de lo que pega
+    el usuario, así que nunca choca con una dirección de la lista.
+    """
+    variante = lectura.get("variante")
+    return f"{url}#{variante}" if variante else url
 
 
 def _limpiar(estado: Dict[str, Any]) -> Dict[str, Any]:
@@ -450,7 +550,14 @@ def _mensaje(enlace: Dict[str, Any], ahora: Dict[str, Any],
              cambio: Dict[str, Any]) -> str:
     from app.services.notify import _pesos
 
-    nombre = enlace.get("etiqueta") or ahora.get("nombre") or "Producto vigilado"
+    # Con varias versiones detrás del mismo enlace manda el nombre de la
+    # tienda, no la etiqueta escrita a mano: es el único que dice CUÁL de las
+    # dos es. Una etiqueta que ponga «(Inglés)» sobre la versión española es
+    # peor que no poner nada.
+    if ahora.get("variante"):
+        nombre = ahora.get("nombre") or enlace.get("etiqueta") or "Producto vigilado"
+    else:
+        nombre = enlace.get("etiqueta") or ahora.get("nombre") or "Producto vigilado"
     filas = [
         f"{cambio['icono']} <b>{cambio['titular']}</b>",
         f"<b>{html.escape(str(nombre))}</b>",
@@ -600,33 +707,38 @@ async def revisar() -> Dict[str, Any]:
 
     # De una en una y no en paralelo: son pocas, y así no se golpea a la misma
     # tienda con varias peticiones justo el día que más carga tiene.
+    #
+    # Una dirección puede dar más de una lectura: las fichas que esconden la
+    # versión inglesa y la española detrás del mismo enlace se siguen por
+    # separado, porque tienen su propio precio y su propio stock.
     lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
     async with httpx.AsyncClient(follow_redirects=True) as cliente:
         for enlace in lista:
-            estado = await leer(cliente, enlace["url"])
-            lecturas.append((enlace, estado))
-            if estado.get("error"):
-                log("warn", "vigilancia",
-                    f"No se pudo mirar {enlace['url']}: {estado['error']}")
+            for estado in await leer(cliente, enlace["url"]):
+                lecturas.append((enlace, estado))
+                if estado.get("error"):
+                    log("warn", "vigilancia",
+                        f"No se pudo mirar {enlace['url']}: {estado['error']}")
 
     avisos = 0
     for enlace, estado in lecturas:
-        cambio = _cambio(previos.get(enlace["url"]), estado)
+        clave = _clave(enlace["url"], estado)
+        cambio = _cambio(previos.get(clave), estado)
 
-        if enlace["url"] not in previos:
+        if clave not in previos:
             log("info", "vigilancia",
-                f"Enlace nuevo en la lista: {enlace['url']} "
+                f"Nuevo en la lista: {clave} "
                 f"(estado inicial: {estado.get('stock') or 'sin ficha'}). "
                 f"A partir de la próxima pasada se avisa de lo que cambie.")
 
         if not cambio:
-            _guardar(enlace, estado, avisado=False)
+            _guardar(clave, enlace, estado, avisado=False)
             continue
 
         texto = _mensaje(enlace, estado, cambio)
         if simulacion or not encendido:
             log("info", "vigilancia", f"[simulación] {texto}")
-            _guardar(enlace, estado, avisado=False)
+            _guardar(clave, enlace, estado, avisado=False)
             continue
 
         # El estado se apunta DESPUÉS de enviar, y solo si el envío sirvió de
@@ -642,7 +754,7 @@ async def revisar() -> Dict[str, Any]:
                 # Insistir no va a cambiar nada —HTML mal formado, una foto que
                 # Telegram no puede descargar—, así que se apunta y se sigue.
                 # Si no, se reintentaría cada minuto para siempre.
-                _guardar(enlace, estado, avisado=False)
+                _guardar(clave, enlace, estado, avisado=False)
             continue
         except Exception as exc:  # noqa: BLE001
             # Un corte de red al enviar. NO se guarda: la próxima pasada lo
@@ -651,9 +763,9 @@ async def revisar() -> Dict[str, Any]:
             log("warn", "vigilancia", f"No se pudo anunciar {enlace['url']}: {exc}")
             continue
 
-        _guardar(enlace, estado, avisado=True)
+        _guardar(clave, enlace, estado, avisado=True)
         avisos += 1
-        log("info", "vigilancia", f"{cambio['titular']}: {enlace['url']}")
+        log("info", "vigilancia", f"{cambio['titular']}: {clave}")
         if pausa:
             await asyncio.sleep(pausa)
 
@@ -722,7 +834,8 @@ async def vigilar_durante(minutos: int, cada: int = 60) -> Dict[str, Any]:
 
 
 
-def _guardar(enlace: Dict[str, Any], estado: Dict[str, Any], avisado: bool) -> None:
+def _guardar(clave: str, enlace: Dict[str, Any], estado: Dict[str, Any],
+             avisado: bool) -> None:
     """Deja apuntado lo leído, para poder comparar en la próxima pasada.
 
     Una lectura que falló por red NO se guarda. Si se guardara, un corte de un
@@ -748,7 +861,7 @@ def _guardar(enlace: Dict[str, Any], estado: Dict[str, Any], avisado: bool) -> N
                    image_url    = COALESCE(excluded.image_url, vigilancia.image_url),
                    visto_at     = excluded.visto_at,
                    avisado_at   = COALESCE(excluded.avisado_at, vigilancia.avisado_at)""",
-            (enlace["url"], enlace.get("etiqueta"), estado.get("nombre"),
+            (clave, enlace.get("etiqueta"), estado.get("nombre"),
              estado.get("precio"), estado.get("stock"), estado.get("http"),
              estado.get("imagen"), 1 if avisado else 0),
         )

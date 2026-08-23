@@ -131,7 +131,7 @@ def pruebas(escribir: bool):
         from app.services import watch
 
         prueba = "https://ejemplo.invalido/probar-base"
-        watch._guardar({"url": prueba, "etiqueta": "prueba"},
+        watch._guardar(prueba, {"url": prueba, "etiqueta": "prueba"},
                        {"http": 404, "nombre": None, "precio": None,
                         "stock": None, "imagen": None}, avisado=False)
         filas = query("SELECT * FROM vigilancia WHERE url = ?", (prueba,))
