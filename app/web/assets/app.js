@@ -360,6 +360,7 @@ const vistaBuscar = async (view) => {
     min_price: params.get('min_price') || '',
     max_price: params.get('max_price') || '',
     sort: params.get('sort') || 'relevance',
+    coleccion: params.get('coleccion') || '',
     page: Number(params.get('page') || 1),
   };
   if (!state.facets) state.facets = await api.get('/api/facets');
@@ -460,11 +461,13 @@ const vistaPortada = async (view) => {
   view.innerHTML = `
     ${juegosHtml(juego)}
 
-    ${carrusel('visto', 'Lo más visto', datos.viewed, q('&sort=stores'),
+    ${carrusel('visto', 'Lo más visto', datos.viewed, q('&coleccion=visto'),
       'Las fichas que más has abierto.')}
 
     ${carrusel('ofertas', 'Ofertas del día', datos.deals,
-      q('&sort=discount&only_in_stock=1'), {
+      q(datos.deals_source === 'spread'
+        ? '&sort=discount&only_in_stock=1'
+        : '&coleccion=bajadas'), {
         drops: 'Lo que ha bajado de precio en la última semana.',
         mixed: 'Bajadas de esta semana y, tras ellas, las mayores diferencias entre tiendas.',
         spread: 'Todavía no hay bajadas registradas: estas son las mayores diferencias entre tiendas.',
@@ -472,7 +475,7 @@ const vistaPortada = async (view) => {
 
     ${categoriasHtml(datos.categories, juego)}
 
-    ${carrusel('nuevo', 'Recién agregados', datos.recent, q('&sort=updated'),
+    ${carrusel('nuevo', 'Recién agregados', datos.recent, q('&coleccion=nuevo'),
       'Lo último que apareció en las tiendas.')}`;
 
   view.querySelectorAll('.shelf').forEach(bindCarrusel);
@@ -678,6 +681,17 @@ function syncHash() {
   history.replaceState(null, '', `#/buscar?${p.toString()}`);
 }
 
+// Las tres listas de la portada, cuando se abren enteras desde su «Ver más».
+//
+// Cada una tiene su propia regla y su propio orden natural —las visitas, lo
+// que bajó, la fecha de alta—, y ese orden se ofrece en el desplegable como
+// una opción más: así se puede reordenar por precio sin perder la lista.
+const COLECCIONES = {
+  visto:   { titulo: 'Lo más visto',     orden: 'coleccion', ordenNombre: 'Más visitas' },
+  bajadas: { titulo: 'Ofertas del día',  orden: 'coleccion', ordenNombre: 'Mayor bajada' },
+  nuevo:   { titulo: 'Recién agregados', orden: 'new',       ordenNombre: 'Más reciente' },
+};
+
 // Último resultado servido y contador de peticiones.
 //
 // El contador evita que una respuesta lenta pise a otra más nueva: al cambiar
@@ -744,15 +758,26 @@ function pintarResultados(box, data) {
   const enfocado = document.activeElement;
   const idEnfocado = box.contains(enfocado) ? enfocado.id : null;
 
+  const coleccion = COLECCIONES[state.filters.coleccion];
+  // El orden propio de la colección va primero y sustituye a «Relevancia»:
+  // fuera de una búsqueda por texto la relevancia no ordena nada.
+  const ordenes = coleccion
+    ? [[coleccion.orden, coleccion.ordenNombre], ['price_asc', 'Precio ↑'], ['price_desc', 'Precio ↓'],
+       ['discount', 'Mayor ahorro'], ['stores', 'Más tiendas'], ['name', 'Nombre']]
+    : [['relevance', 'Relevancia'], ['price_asc', 'Precio ↑'], ['price_desc', 'Precio ↓'],
+       ['discount', 'Mayor ahorro'], ['stores', 'Más tiendas'], ['name', 'Nombre'],
+       ['new', 'Más reciente'], ['updated', 'Actualizado']];
+
   box.innerHTML = `
     <div class="toolbar">
+      ${coleccion ? `<span class="collchip">${esc(coleccion.titulo)}
+          <button type="button" id="coll-clear" aria-label="Ver todo el catálogo">×</button>
+        </span>` : ''}
       <strong>${num(data.total)}</strong><span class="muted">productos encontrados</span>
       <div class="toolbar__spacer"></div>
       <select id="sort" style="width:auto">
-        ${[['relevance', 'Relevancia'], ['price_asc', 'Precio ↑'], ['price_desc', 'Precio ↓'],
-           ['discount', 'Mayor ahorro'], ['stores', 'Más tiendas'], ['name', 'Nombre'],
-           ['updated', 'Actualizado']]
-          .map(([v, l]) => `<option value="${v}" ${state.filters.sort === v ? 'selected' : ''}>${l}</option>`).join('')}
+        ${ordenes
+          .map(([v, l]) => `<option value="${v}" ${state.filters.sort === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}
       </select>
       ${esMovil() ? '' : `<div class="viewmodes">
         ${[['cards', 'Tarjetas'], ['list', 'Lista']]
@@ -776,6 +801,16 @@ function pintarResultados(box, data) {
     const control = document.getElementById(idEnfocado);
     if (control) control.focus({ preventScroll: true });
   }
+
+  const limpiar = document.getElementById('coll-clear');
+  if (limpiar) limpiar.onclick = () => {
+    // Se sale de la lista pero se conservan los filtros puestos: quien llegó
+    // desde «Ofertas del día» y acotó a una tienda quiere seguir viendo esa
+    // tienda, solo que ya no restringido a las bajadas.
+    state.filters = { ...state.filters, coleccion: '', sort: 'relevance', page: 1 };
+    syncHash();
+    loadResults();
+  };
 
   document.getElementById('sort').onchange = (e) => {
     state.filters.sort = e.target.value;

@@ -71,6 +71,7 @@ def search_products(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     sort: str = "relevance",
+    coleccion: Optional[str] = None,
     page: int = 1,
     page_size: int = 24,
 ) -> Dict[str, Any]:
@@ -149,6 +150,19 @@ def search_products(
     with get_connection() as conn:
         rows = [dict(row) for row in conn.execute(sql, params).fetchall()]
 
+    # Colecciones de la portada: «lo más visto» y «ofertas del día» no salen
+    # de la tabla de productos sino de las visitas y del registro de cambios,
+    # así que no hay filtro SQL que las reproduzca. Se recortan aquí, con la
+    # métrica que las ordena, para que el «Ver más» de la portada lleve a la
+    # misma lista y no a una aproximación.
+    metricas = _metricas_de_coleccion(coleccion, days=7) if coleccion else None
+    if metricas is not None:
+        rows = [row for row in rows if row["id"] in metricas]
+        for row in rows:
+            row["_coleccion"] = metricas[row["id"]]
+    if coleccion and sort in ("", "relevance", None):
+        sort = _ORDEN_DE_COLECCION.get(coleccion, sort)
+
     # Ranking difuso en Python (búsqueda tradicional por tokens, sin IA).
     if tokens:
         for row in rows:
@@ -164,14 +178,81 @@ def search_products(
     start = max(0, (page - 1) * page_size)
     page_rows = rows[start : start + page_size]
 
+    items = [_product_summary(row) for row in page_rows]
+    if coleccion:
+        # La misma etiqueta que llevan en la portada —«8 visitas», «Bajó
+        # $5.000»—: es el dato por el que están en esta lista, y sin él el
+        # orden pareceria arbitrario.
+        for item, row in zip(items, page_rows):
+            etiqueta = _ETIQUETA_DE_COLECCION.get(coleccion)
+            if etiqueta and row.get("_coleccion") is not None:
+                item["badge"] = etiqueta(row["_coleccion"])
+
     return {
-        "items": [_product_summary(row) for row in page_rows],
+        "items": items,
         "total": total,
         "page": page,
         "page_size": page_size,
         "pages": max(1, (total + page_size - 1) // page_size),
         "query": q,
+        "coleccion": coleccion or None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Colecciones de la portada
+#
+# Cada carrusel de la portada es una lista con su propia regla. Aquí viven las
+# reglas para que el «Ver más» abra exactamente esa lista, entera y filtrable,
+# en vez de una búsqueda parecida: antes «Lo más visto» llevaba a un orden por
+# número de tiendas, que no tiene nada que ver con las visitas.
+# ---------------------------------------------------------------------------
+COLECCIONES = ("visto", "bajadas", "nuevo")
+
+# Cómo se ordena cada una si no se pide otra cosa. «nuevo» no restringe qué
+# productos entran —son todos—, solo por dónde se empieza.
+_ORDEN_DE_COLECCION = {
+    "visto": "coleccion",
+    "bajadas": "coleccion",
+    "nuevo": "new",
+}
+
+_ETIQUETA_DE_COLECCION = {
+    "visto": lambda v: f"{int(v)} {'visita' if int(v) == 1 else 'visitas'}",
+    "bajadas": lambda v: "Bajó $" + f"{int(v):,}".replace(",", "."),
+}
+
+
+def _metricas_de_coleccion(nombre: str, days: int = 7) -> Optional[Dict[int, float]]:
+    """product_id -> el número que mete a ese producto en la colección.
+
+    None cuando la colección no restringe nada («nuevo» son todos los
+    productos, solo cambia el orden) o cuando el nombre no es de ninguna.
+    """
+    if nombre == "visto":
+        return {
+            int(row["product_id"]): float(row["views"])
+            for row in query("SELECT product_id, views FROM product_views WHERE views > 0")
+        }
+
+    if nombre == "bajadas":
+        # La misma regla que `daily_deals`, sin tope: bajadas registradas en
+        # los últimos días, sobre productos que además se pueden comprar.
+        filas = query(
+            f"""SELECT sp.product_id AS product_id,
+                       MAX(CAST(e.old_value AS REAL) - CAST(e.new_value AS REAL)) AS bajada
+                FROM events e
+                JOIN store_products sp ON sp.id = e.store_product_id AND sp.is_active = 1
+                JOIN products p ON p.id = sp.product_id
+                WHERE e.type = 'price_drop'
+                  AND e.created_at >= datetime('now', '-{int(days)} days')
+                  AND e.old_value IS NOT NULL AND e.new_value IS NOT NULL
+                  AND p.in_stock_count > 0
+                GROUP BY sp.product_id"""
+        )
+        return {int(f["product_id"]): float(f["bajada"] or 0) for f in filas}
+
+    return None
 
 
 class _desc:
@@ -218,6 +299,11 @@ def _sort_key(sort: str):
             -_discount_pct(row),
             price_of(row),
         )
+    if sort == "coleccion":
+        # El orden propio de la colección: las visitas en «lo más visto», lo
+        # que bajó en «ofertas del día». Fuera de una colección no hay métrica
+        # y todas valen cero, así que degrada a ordenar por nombre.
+        return lambda row: (-(row.get("_coleccion") or 0), row["display_name"] or "")
     # relevancia por defecto
     return lambda row: (-(row.get("_score") or 0), -int(row.get("stores_count") or 0), price_of(row))
 

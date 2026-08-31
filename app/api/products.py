@@ -25,7 +25,11 @@ def list_products(
     favorites_only: bool = False,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    sort: str = Query("relevance", pattern="^(relevance|price_asc|price_desc|name|stores|updated|discount)$"),
+    sort: str = Query("relevance",
+                      pattern="^(relevance|price_asc|price_desc|name|stores|updated|new|discount|coleccion)$"),
+    coleccion: Optional[str] = Query(
+        None, pattern="^(visto|bajadas|nuevo)$",
+        description="Las listas de la portada: visto | bajadas | nuevo"),
     page: int = Query(1, ge=1),
     page_size: int = Query(24, ge=1, le=200),
 ):
@@ -41,6 +45,7 @@ def list_products(
         min_price=min_price,
         max_price=max_price,
         sort=sort,
+        coleccion=coleccion,
         page=page,
         page_size=page_size,
     )

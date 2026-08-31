@@ -421,6 +421,24 @@ select:focus, input:focus, textarea:focus { outline: 2px solid var(--accent-soft
   margin-bottom: 14px;
 }
 .toolbar__spacer { flex: 1; }
+
+/* Distintivo de la lista que se está viendo cuando se llega desde el
+   «Ver más» de la portada. Lleva su propia aspa porque no es un filtro de la
+   barra lateral: no se quita desde ahí, y sin salida se veria como si el
+   catálogo se hubiera encogido. */
+.collchip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 6px 3px 10px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.collchip button {
+  display: grid; place-items: center; width: 18px; height: 18px;
+  padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: inherit;
+  font: inherit; font-size: 15px; line-height: 1; cursor: pointer;
+}
+.collchip button:hover { background: var(--accent); color: #fff; }
 .viewmodes { display: flex; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
 .viewmodes button {
   padding: 6px 12px; border: 0; background: var(--surface); color: var(--text-muted);
