@@ -1,0 +1,37 @@
+# =====================================================================
+# Mundo Imaginario (https://mundoimaginario.cl) — WooCommerce.
+#
+# OJO con la dirección: la que llegó era `/pokemon-tcg/`, que es una página
+# de la tienda pero NO una categoría de productos —la API devuelve cero para
+# ese slug—. La categoría de verdad es `cartas-pokemon`, con 105 productos, y
+# pese al nombre son cajas, ETB y blísters, no cartas sueltas.
+#
+# El grueso de la tienda son juegos de mesa (334 productos), así que no se
+# recorre el catálogo completo: solo estas dos categorías.
+#
+# `preventa` va aparte porque sus productos NO están en `cartas-pokemon`: hoy
+# son dos Deck Crafter's Collection que de otro modo no entrarían. Es la única
+# categoría del archivo que no es específica de Pokémon; si algún día la
+# tienda mete ahí una preventa de juego de mesa, entraría marcada como
+# Pokémon y habría que quitarla de aquí.
+# =====================================================================
+
+code: mundoimaginario
+name: "Mundo Imaginario"
+base_url: "https://mundoimaginario.cl"
+enabled: true
+adapter: woocommerce
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - slug: cartas-pokemon
+    name: "Cartas Pokémon"
+    game: pokemon
+  - slug: preventa
+    name: "Preventa"
+    game: pokemon
+
+page_size: 100
+max_pages: 4

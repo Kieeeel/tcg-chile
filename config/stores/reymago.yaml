@@ -1,0 +1,27 @@
+# =====================================================================
+# Tienda Rey Mago (https://tiendareymago.cl) — Shopify.
+#
+# Se recorre solo `pokemon`, 25 productos. Las otras dos colecciones que
+# sonaban se descartaron a propósito:
+#
+#   single   cartas sueltas, y este proyecto compara producto sellado
+#   tcg      un producto, y ya está dentro de `pokemon`: comprobado que no
+#            aporta ninguna ficha que no entre por la otra
+# =====================================================================
+
+code: reymago
+name: "Tienda Rey Mago"
+base_url: "https://tiendareymago.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon
+    name: "Pokémon"
+    game: pokemon
+
+page_size: 250
+max_pages: 4
