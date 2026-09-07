@@ -1,0 +1,29 @@
+# =====================================================================
+# Freakardz (https://freakardz.com) — Shopify.
+#
+# La dirección que llegó era `/collections/all`, el catálogo entero. No sirve
+# tal cual: `all` incluye las cartas sueltas, y este proyecto compara producto
+# sellado. La tienda tiene solo cinco colecciones y una de ellas es
+# exactamente lo que hace falta:
+#
+#   sellado-pokemon    23 productos   <- esta
+#   pokemon-singles                   cartas sueltas, fuera
+#   pokemon-center      0 productos   vacía a día de hoy
+# =====================================================================
+
+code: freakardz
+name: "Freakardz"
+base_url: "https://freakardz.com"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: sellado-pokemon
+    name: "Sellado Pokémon"
+    game: pokemon
+
+page_size: 250
+max_pages: 4

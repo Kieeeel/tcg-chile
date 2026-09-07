@@ -1,0 +1,32 @@
+# =====================================================================
+# El Olimpo TCG (https://elolimpotcg.cl) — Shopify.
+#
+# La dirección que llegó era `/collections/pokemon?page=2`, es decir la
+# segunda página del listado. Aquí se recorre la colección entera por la API
+# de Shopify, que la devuelve completa y sin depender de cuántas páginas
+# tenga hoy el listado.
+#
+# La tienda declara dos colecciones con el mismo contenido —`pokemon` y
+# `productos-pokemon`, 31 productos cada una—, así que se recorre solo una:
+# la otra duplicaría cada ficha.
+#
+# Otras colecciones de Pokémon, más específicas y ya contenidas en esta:
+#   sobre-pokemon-tcg · tin-pokemon · aventuras-compartidas-pokemon-tcg
+# =====================================================================
+
+code: elolimpotcg
+name: "El Olimpo TCG"
+base_url: "https://elolimpotcg.cl"
+adapter: shopify
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+collections:
+  - handle: pokemon
+    name: "Pokémon"
+    game: pokemon
+
+page_size: 250
+max_pages: 4

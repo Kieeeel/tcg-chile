@@ -1,0 +1,52 @@
+# =====================================================================
+# Geekz (https://geekz.cl) — Odoo eCommerce.
+#
+# Primera tienda del proyecto sobre Odoo, así que los selectores no se
+# parecen a los de ninguna otra: las fichas del listado son `.oe_product` y
+# el enlace cuelga de `a[itemprop="url"]`.
+#
+# El grueso de Geekz son figuras y model kits; de Pokémon sellado tiene esta
+# categoría y poco más. `?ppg=100` pide todo el listado de una vez —el valor
+# por defecto es 15— y con eso no hace falta paginar.
+#
+# El precio se lee de `span[itemprop="price"]`, que trae el número limpio
+# («37990»). `.oe_price .oe_currency_value` da lo mismo ya formateado
+# («37.990») y vale de reserva. NO se usa `.product_price`: ese nodo concatena
+# el precio, la moneda y el precio tachado en una sola cadena.
+#
+# Sobre el stock: la ficha marca «STOCK» en `.dr-product-label`, pero esa
+# palabra suelta no dice si hay o no —«SIN STOCK» también la contiene—, así
+# que manda el botón de compra. Si algún día una ficha agotada esconde el
+# botón, el estado quedará en «desconocido», que es lo prudente: nunca se
+# dará por disponible algo que no se ha podido confirmar.
+# =====================================================================
+
+code: geekz
+name: "Geekz"
+base_url: "https://geekz.cl"
+adapter: html
+enabled: true
+currency: CLP
+country: CL
+default_game: pokemon
+
+categories:
+  - name: "Trading Card Game"
+    url: "/shop/category/trading-card-game-42?ppg=100"
+    game: pokemon
+
+listing:
+  item: ".oe_product"
+  link: "a[itemprop='url']"
+
+selectors:
+  # `h1` y no `h6 span`: ese último es la marca —«POKEMON COMPANY»— y con él
+  # las seis fichas se guardaban con el mismo nombre. Tampoco vale
+  # `span[itemprop="name"]`, que en esta plantilla es el vendedor: «GEEKZ SPA».
+  name: ["h1"]
+  price: ["span[itemprop='price']", ".oe_price .oe_currency_value"]
+  stock: ["#add_to_cart", ".dr-product-label"]
+  # La del carrusel de la ficha. `.oe_product_image` es del listado y en la
+  # ficha no existe, por eso los productos entraron sin foto.
+  image: ["img[itemprop='image']", "meta[property='og:image']"]
+  description: ["#product_full_description", ".oe_website_sale .product_description"]
