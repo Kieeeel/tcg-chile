@@ -56,6 +56,20 @@ listing:
   item: "div.js-item-product"
   link: "a.item-link"
   parse_inline: true
+  # La clase que Tiendanube pone en las tarjetas con versiones. Es lo que
+  # evita abrir las treinta fichas para descubrir que solo una la necesita.
+  variants_marker: ".js-quickshop-has-variants"
+
+# 3) Una misma dirección puede vender el español y el inglés, y el desplegable
+#    que los cambia NO toca la URL. La Binder Collection del 30 aniversario
+#    vale $51.990 en español y $84.990 en inglés: guardarla como una sola
+#    oferta perdía la mitad del catálogo y $33.000 de diferencia.
+#
+#    Aquí el JSON-LD no publica las versiones —al contrario que en Bsale—,
+#    van en el array `LS.variants` de la ficha. Con esto se emite una oferta
+#    por versión, con el nombre de la versión pegado al del producto para que
+#    el idioma se detecte solo.
+expand_tiendanube_variants: true
 
 use_json_ld: true
 id_from_sku: false

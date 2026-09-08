@@ -5,6 +5,8 @@ escribir código para añadirla. Ver config/stores/*.yaml para ejemplos.
 """
 from __future__ import annotations
 
+import json
+import re
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from app.scrapers.base import Category, RawProduct, StoreAdapter, _as_list
@@ -252,6 +254,85 @@ class HtmlStoreAdapter(StoreAdapter):
             )
         return salida or ([base] if base is not None else [])
 
+    # -- variantes de Tiendanube ---------------------------------------------
+    #
+    # Tiendanube (Pokestop) vende el español y el inglés en la MISMA dirección
+    # y los cambia con un desplegable que no toca la URL. Leyendo solo la
+    # tarjeta del listado se guarda una oferta con el precio del primero y sin
+    # idioma que la identifique:
+    #
+    #   30th Celebration - Binder Collection
+    #       Español  $51.990      <- lo único que se guardaba
+    #       Ingles   $84.990      <- se perdía, y son $33.000 de diferencia
+    #
+    # Al contrario que en Bsale, aquí el JSON-LD no publica las versiones: van
+    # en `LS.variants`, un array de JavaScript con el precio, el stock y el
+    # nombre de cada una.
+    async def _variantes_tiendanube(
+        self, item: Any, url: str, category: Optional[Category],
+        base: RawProduct,
+    ) -> List[RawProduct]:
+        listing = self.config.get("listing") or {}
+        if not self.config.get("expand_tiendanube_variants", False):
+            return []
+
+        # El listado ya dice qué fichas tienen versiones. Sin esta marca habría
+        # que abrirlas todas para descubrir que casi ninguna la necesita.
+        marca = listing.get("variants_marker", ".js-quickshop-has-variants")
+        if marca and not item.select_one(marca):
+            return []
+
+        resultado = await self.client.get(url)
+        if not resultado.ok or not resultado.text:
+            # Sin la ficha no se puede separar, pero la oferta del listado sigue
+            # siendo válida: se devuelve vacío y quien llama usa esa.
+            return []
+
+        encaje = _LS_VARIANTS.search(resultado.text)
+        if not encaje:
+            return []
+        try:
+            variantes = json.loads(encaje.group(1))
+        except ValueError:
+            return []
+        variantes = [v for v in variantes if isinstance(v, dict)]
+        if len(variantes) < 2:
+            return []
+
+        limpia = clean_url(url)
+        salida: List[RawProduct] = []
+        for variante in variantes:
+            version = str(variante.get("option0") or "").strip()
+            identidad = variante.get("id")
+            if not version or identidad is None:
+                continue
+
+            imagen = variante.get("image_url") or ""
+            if imagen.startswith("//"):
+                imagen = "https:" + imagen
+
+            # El identificador de la variante manda sobre el SKU: Pokestop
+            # repite el SKU entre versiones —por eso esta tienda ya lleva
+            # `id_from_sku: false`— y con él las dos ofertas se pisarían.
+            salida.append(
+                RawProduct(
+                    url=f"{limpia}#{identidad}",
+                    name=f"{base.name} {version}",
+                    price=parse_price(variante.get("price_number")),
+                    price_raw=str(variante.get("price_short") or ""),
+                    currency=self.currency,
+                    external_id=str(identidad),
+                    image_url=imagen or base.image_url,
+                    description=base.description,
+                    category=(category.name if category else None),
+                    stock_status=parse_stock(bool(variante.get("available")), STOCK_UNKNOWN),
+                    stock_raw=str(variante.get("stock")),
+                    sku=str(variante.get("sku") or "") or None,
+                    brand=base.brand,
+                )
+            )
+        return salida if len(salida) >= 2 else []
+
     def build_product(
         self, node: Any, url: str, category: Optional[Category] = None
     ) -> Optional[RawProduct]:
@@ -373,10 +454,25 @@ class HtmlStoreAdapter(StoreAdapter):
                         continue
                     seen.add(product_url)
                     product = self.build_product(item, product_url, category)
-                    if product is not None:
+                    if product is None:
+                        continue
+
+                    # Una tarjeta puede esconder varias versiones del producto.
+                    # Solo se abre la ficha de las que el propio listado marca
+                    # como tal: hoy es una de treinta, y abrirlas todas sería
+                    # tirar por tierra lo que ahorra `parse_inline`.
+                    variantes = await self._variantes_tiendanube(
+                        item, product_url, category, product
+                    )
+                    for salida in (variantes or [product]):
                         emitted += 1
                         self.stats.products += 1
-                        yield product
+                        yield salida
+                        if emitted >= max_products:
+                            return
+
+
+_LS_VARIANTS = re.compile(r"LS\.variants\s*=\s*(\[.*?\]);", re.S)
 
 
 def _is_product(block: Dict[str, Any]) -> bool:
