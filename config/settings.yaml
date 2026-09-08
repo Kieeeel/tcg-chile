@@ -78,6 +78,19 @@ telegram:
   # Hasta cuántas horas atrás se mira. Lo que no salga hoy sale mañana,
   # mientras no pase de aquí.
   max_age_hours: 48
+  # No anunciar lo que ya está agotado según la última pasada del scraping.
+  # Faltaba, y con eventos que viven dos días y scraping cada cuatro horas
+  # daba tiempo de sobra a que algo se agotara y se anunciara igual.
+  solo_disponibles: true
+  # Y, antes de cada mensaje, preguntar a la tienda si sigue a la venta a ese
+  # precio. Lo anterior usa lo último que sabemos, que tiene hasta cuatro
+  # horas; en una preventa eso sobra para llegar tarde. Cuesta una petición
+  # por mensaje —diez por publicación, repartidas entre diez tiendas— y es
+  # lo único que evita mandar a alguien a comprar algo que ya no está.
+  #
+  # Si la tienda no responde o no declara stock, se publica igual: una tienda
+  # que no sabemos leer no puede callar una oferta buena.
+  confirmar_antes_de_publicar: true
   hide_preview: true
   # Si no hay ninguna bajada que contar, publicar igualmente una oportunidad
   # del comparador: un producto que está bastante más barato en una tienda que

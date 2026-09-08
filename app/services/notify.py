@@ -166,6 +166,18 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
         filtro_tienda = f"AND s.code IN ({','.join('?' * len(modo['tiendas']))})"
         parametros += modo["tiendas"]
 
+    # Que la oferta siga a la venta según lo último que sabemos. Faltaba, y se
+    # notaba: un evento vive en la cola hasta `max_age_hours` —dos días— y el
+    # scraping pasa cada cuatro horas, así que daba tiempo de sobra a que el
+    # producto se agotara y se anunciara igual. Anunciar algo agotado manda a
+    # alguien a una tienda a por nada, que es peor que no decir nada.
+    filtro_stock = ""
+    if cfg.get("solo_disponibles", True):
+        disponibles = settings.get("stock.available_states", ["in_stock", "preorder"]) or []
+        if disponibles:
+            filtro_stock = f"AND sp.stock_status IN ({','.join('?' * len(disponibles))})"
+            parametros += list(disponibles)
+
     sql = f"""
         SELECT e.id, e.type, e.old_value, e.new_value, e.pct_change, e.created_at,
                e.store_product_id,
@@ -183,6 +195,7 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
         WHERE t.event_id IS NULL
           AND e.type IN ({','.join('?' * len(tipos))})
           {filtro_tienda}
+          {filtro_stock}
           AND e.created_at >= datetime('now', '-{horas} hours')
         ORDER BY e.created_at ASC, e.id ASC
     """
@@ -240,6 +253,106 @@ def eventos_pendientes(limite: Optional[int] = None) -> List[Dict[str, Any]]:
         if len(salida) >= limite:
             break
     return salida
+
+
+async def confirmar_en_la_tienda(
+    cliente: httpx.AsyncClient, url: str, precio: Optional[float],
+    nombre: Optional[str] = None,
+) -> Optional[bool]:
+    """¿Sigue esto a la venta AHORA, y al precio que vamos a anunciar?
+
+    El filtro por `stock_status` usa lo último que sabemos, y lo último que
+    sabemos tiene hasta cuatro horas: es el tiempo entre pasadas del scraping.
+    En una preventa eso sobra para que algo se agote entre que se encuentra y
+    que se cuenta. Esto pregunta a la tienda justo antes de hablar.
+
+    Cuesta una petición por mensaje. Con el tope de diez por publicación son
+    diez peticiones repartidas entre diez tiendas distintas: nada, al lado de
+    mandar a alguien a comprar algo que ya no está.
+
+    Devuelve None cuando NO se puede afirmar nada —la tienda no responde, no
+    declara disponibilidad, o la ficha tiene varias versiones y ninguna encaja
+    con nuestro precio—. En ese caso se publica igual: una tienda que no
+    sabemos leer no puede callar una oferta buena.
+    """
+    from app.services import watch
+
+    disponibles = settings.get("stock.available_states", ["in_stock", "preorder"]) or []
+    if not disponibles:
+        return None
+
+    try:
+        lecturas = [l for l in await watch.leer(cliente, url.split("#")[0])
+                    if not l.get("error")]
+    except Exception as exc:  # noqa: BLE001
+        log("info", "telegram", f"No se pudo comprobar {url}: {exc}")
+        return None
+    if not lecturas:
+        return None
+
+    elegida = _lectura_de_esta_oferta(lecturas, precio, nombre)
+    if elegida is None:
+        return None
+
+    estado = elegida.get("stock")
+    if not estado or estado == "unknown":
+        return None
+    if estado not in disponibles:
+        return False
+
+    # Y que el precio no haya subido: anunciar $50.000 cuando la tienda pide
+    # $70.000 engaña igual que anunciar algo agotado. Si ha bajado más todavía,
+    # se publica: el anuncio se queda corto, que no hace daño a nadie.
+    vivo = elegida.get("precio")
+    if precio and vivo is not None and float(vivo) > precio * 1.02:
+        return False
+    return True
+
+
+def _lectura_de_esta_oferta(
+    lecturas: List[Dict[str, Any]], precio: Optional[float], nombre: Optional[str]
+) -> Optional[Dict[str, Any]]:
+    """Cuál de las versiones de la ficha es la nuestra.
+
+    Una dirección puede vender el español y el inglés a la vez. Elegir mal es
+    peor que no elegir: en el Ditto de Winterland las dos versiones cuestan
+    $70.000 y solo una está a la venta, así que quedarse con la primera que
+    cuadra en precio callaba una oferta que sí existía.
+
+    Por eso manda el NOMBRE, que es lo único que de verdad las separa, y el
+    precio queda de reserva. Y si aun así queda la duda entre varias que no se
+    ponen de acuerdo sobre si hay stock, se devuelve None: mejor publicar sin
+    confirmar que descartar una oferta buena.
+    """
+    if len(lecturas) == 1:
+        return lecturas[0]
+
+    if nombre:
+        objetivo = re.sub(r"[^a-z0-9]+", "", str(nombre).lower())
+        por_nombre = [
+            l for l in lecturas
+            if objetivo and re.sub(r"[^a-z0-9]+", "", str(l.get("nombre") or "").lower()) == objetivo
+        ]
+        if len(por_nombre) == 1:
+            return por_nombre[0]
+
+    candidatas = lecturas
+    if precio:
+        por_precio = [
+            l for l in lecturas
+            if l.get("precio") is not None
+            and abs(float(l["precio"]) - precio) <= max(1.0, precio * 0.02)
+        ]
+        if len(por_precio) == 1:
+            return por_precio[0]
+        if por_precio:
+            candidatas = por_precio
+
+    # Sin forma de distinguirlas: solo vale si todas dicen lo mismo.
+    estados = {l.get("stock") for l in candidatas}
+    if len(estados) == 1:
+        return candidatas[0]
+    return None
 
 
 def _posicion_en_el_mercado(fila: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -386,7 +499,7 @@ def _linea_destacado(oportunidad: Dict[str, Any]) -> str:
     return "\n".join(filas)
 
 
-def destacado() -> Optional[Dict[str, Any]]:
+def destacado(excluir: Optional[set] = None) -> Optional[Dict[str, Any]]:
     """Una buena oportunidad al azar, para los días sin bajadas.
 
     Se elige al azar entre las mejores y no entre la primera, porque si no
@@ -399,11 +512,12 @@ def destacado() -> Optional[Dict[str, Any]]:
     minimo = float(cfg.get("destacado_min_pct", 5) or 0)
     dias = int(cfg.get("destacado_no_repetir_dias", 14) or 0)
 
+    excluir = excluir or set()
     candidatos = [
         o for o in queries.opportunities(
             limit=int(cfg.get("destacado_candidatos", 60) or 60), sort="percent"
         )
-        if o["savings_pct"] >= minimo
+        if o["savings_pct"] >= minimo and o["id"] not in excluir
     ]
     if not candidatos:
         return None
@@ -518,6 +632,43 @@ async def _enviar_una_vez(texto: str, imagen: Optional[str] = None) -> Dict[str,
     return datos
 
 
+async def _confirmar_lote(eventos: List[Dict[str, Any]],
+                          marcar: bool = True) -> List[Dict[str, Any]]:
+    """Descarta los que ya no se pueden comprar, preguntando a cada tienda.
+
+    Lo descartado se marca como enviado. Si no, volvería en la próxima pasada
+    —la cola va por antigüedad y tiene tope— y una oferta muerta se quedaría
+    ocupando sitio delante de las vivas.
+    """
+    vivos: List[Dict[str, Any]] = []
+    caidos: List[int] = []
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=25) as cliente:
+        for evento in eventos:
+            url = evento.get("url")
+            if not url:
+                vivos.append(evento)
+                continue
+            precio = _numero(evento.get("current_price"))
+            if evento["type"] == "price_drop":
+                precio = _numero(evento.get("new_value")) or precio
+
+            veredicto = await confirmar_en_la_tienda(
+                cliente, str(url), precio, evento.get("offer_name"))
+            if veredicto is False:
+                caidos.append(evento["id"])
+                log("info", "telegram",
+                    f"No se anuncia «{evento.get('display_name') or evento.get('offer_name')}»: "
+                    f"al comprobarlo en {evento.get('store_name')} ya no está a la venta "
+                    f"a {_pesos(precio)}")
+                continue
+            vivos.append(evento)
+
+    if caidos and marcar:
+        _marcar_enviados(caidos)
+    return vivos
+
+
 async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
     """Publica las ofertas pendientes.
 
@@ -530,7 +681,13 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
         log("info", "telegram", "Desactivado (telegram.enabled = false)")
         return {"sent": 0, "reason": "desactivado"}
 
+    simulacion = bool(cfg.get("dry_run", True)) and not forzar_envio
+
     eventos = eventos_pendientes()
+    if eventos and cfg.get("confirmar_antes_de_publicar", True):
+        # En simulación se comprueba igual —conviene ver qué se caería— pero
+        # sin apuntar nada: `dry_run` existe para poder repetir la prueba.
+        eventos = await _confirmar_lote(eventos, marcar=not simulacion)
     if not eventos:
         # Antes esto no dejaba rastro, y desde fuera no había forma de saber
         # si el aviso estaba apagado, mal configurado, o simplemente callado
@@ -544,7 +701,6 @@ async def publicar(forzar_envio: bool = False) -> Dict[str, Any]:
     sueltos = bool(cfg.get("one_message_per_offer", False))
     mensajes = componer_sueltos(eventos) if sueltos else [componer(eventos)]
 
-    simulacion = bool(cfg.get("dry_run", True)) and not forzar_envio
     if simulacion:
         log("info", "telegram",
             f"[simulación] se habrían publicado {len(eventos)} ofertas en "
@@ -722,11 +878,38 @@ async def _publicar_destacado(forzar_envio: bool) -> Dict[str, Any]:
               f"hora en Chile: {_ahora_en_chile():%H:%M})", flush=True)
         return {"sent": 0, "reason": "no toca relleno"}
 
-    oportunidad = destacado()
+    # Hasta tres intentos: la oportunidad sale de lo último que sabemos, que
+    # tiene hasta cuatro horas, así que la mejor del comparador puede llevar
+    # rato agotada. Se comprueba en la tienda antes de contarla y, si ya no
+    # está, se prueba con la siguiente en vez de callar. Se piden de una en
+    # una porque `destacado()` elige al azar entre las buenas.
+    oportunidad = None
+    if cfg.get("confirmar_antes_de_publicar", True) and not forzar_envio:
+        descartadas: set = set()
+        async with httpx.AsyncClient(follow_redirects=True, timeout=25) as cliente:
+            for _ in range(3):
+                candidata = destacado(excluir=descartadas)
+                if not candidata:
+                    break
+                veredicto = await confirmar_en_la_tienda(
+                    cliente, str(candidata.get("best_url") or ""),
+                    _numero(candidata.get("best_price")))
+                if veredicto is False:
+                    descartadas.add(candidata["id"])
+                    log("info", "telegram",
+                        f"No se destaca «{candidata['name']}»: al comprobarlo en "
+                        f"{candidata.get('best_store')} ya no está a {_pesos(candidata['best_price'])}")
+                    continue
+                oportunidad = candidata
+                break
+    else:
+        oportunidad = destacado()
+
     if not oportunidad:
         log("info", "telegram",
             "Nada que publicar, y tampoco hay ninguna oportunidad que supere "
-            f"el {cfg.get('destacado_min_pct', 5)}% de diferencia entre tiendas")
+            f"el {cfg.get('destacado_min_pct', 5)}% de diferencia entre tiendas "
+            f"y siga a la venta")
         return {"sent": 0, "reason": "nada nuevo que contar"}
 
     mensaje = _linea_destacado(oportunidad)
