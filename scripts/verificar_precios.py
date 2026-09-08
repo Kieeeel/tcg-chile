@@ -167,11 +167,49 @@ async def _precio_de_woocommerce(cliente, url: str) -> Optional[float]:
         return None
 
 
+async def _precio_de_variante_tiendanube(cliente, url: str, ancla: str) -> Optional[float]:
+    """Precio de la versión concreta que señala el ancla, en Tiendanube.
+
+    Estas fichas venden el español y el inglés en la misma dirección, y ni la
+    etiqueta `og:` ni el JSON-LD cambian al elegir: los dos siguen dando el
+    precio de la primera versión. Sin esto, la oferta inglesa se comparaba
+    contra el precio de la española y se marcaba como equivocada una que
+    estaba bien — un aviso falso en cada pasada, que es la mejor forma de que
+    se deje de mirar la herramienta.
+    """
+    if not ancla.isdigit():
+        return None
+    try:
+        r = await cliente.get(url, headers=CABECERAS, timeout=25)
+        if r.status_code >= 400:
+            return None
+        m = re.search(r"LS\.variants\s*=\s*(\[.*?\]);", r.text, re.S)
+        if not m:
+            return None
+        for v in json.loads(m.group(1)):
+            if isinstance(v, dict) and str(v.get("id")) == ancla:
+                return _numero(v.get("price_number"))
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+def _numero(valor) -> Optional[float]:
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
 async def comprobar(cliente, oferta) -> dict:
-    url = str(oferta["url"]).split("#")[0]
+    completa = str(oferta["url"])
+    url = completa.split("#")[0]
+    ancla = completa.split("#", 1)[1] if "#" in completa else ""
 
     # Si la dirección señala una variante, ese es el precio a comparar.
     real = await _precio_de_variante_shopify(cliente, url)
+    if real is None and ancla:
+        real = await _precio_de_variante_tiendanube(cliente, url, ancla)
     if real is None:
         real = await _precio_de_woocommerce(cliente, url)
     if real is not None:
