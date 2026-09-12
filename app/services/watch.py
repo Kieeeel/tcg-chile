@@ -519,6 +519,19 @@ def _cambio(antes: Optional[Dict[str, Any]],
     antes_stock = antes.get("stock_status") or STOCK_UNKNOWN
     antes_precio = antes.get("price")
 
+    # `unknown` NO es un estado, es «no he podido leerlo». Tratarlo como «no se
+    # puede comprar» es el fallo que hacía al bot anunciar una cosa y la
+    # contraria seguidas:
+    #
+    #   lectura buena       en stock            (calla)
+    #   lectura degradada   unknown        ->   SE AGOTÓ        <- mentira
+    #   lectura buena       en stock       ->   YA SE PUEDE COMPRAR
+    #
+    # Y vuelta a empezar en cuanto la tienda tardara un poco de más. Basta con
+    # que uno de los dos lados sea desconocido para que no haya nada que
+    # comparar: sin saber de dónde se viene o a dónde se va, no hay cambio.
+    se_sabe = stock != STOCK_UNKNOWN and antes_stock != STOCK_UNKNOWN
+
     # La ficha no existía y ahora sí: la preventa acaba de publicarse.
     if not antes_existia:
         return {"icono": "🚨",
@@ -526,13 +539,13 @@ def _cambio(antes: Optional[Dict[str, Any]],
 
     # De no poder comprarse a poder comprarse. Este es el aviso que justifica
     # todo lo demás.
-    if comprable and antes_stock not in COMPRABLE:
+    if se_sabe and comprable and antes_stock not in COMPRABLE:
         return {"icono": "🚨",
                 "titular": ("YA SE PUEDE RESERVAR" if stock == STOCK_PREORDER
                             else "YA SE PUEDE COMPRAR")}
 
-    if not comprable and antes_stock in COMPRABLE:
-        return {"icono": "⛔", "titular": "SE AGOTÓ"}
+    if se_sabe and not comprable and antes_stock in COMPRABLE:
+        return {"icono": "⛔", "titular": "SE AGOTÓ", "confirmar": True}
 
     # Cambio de precio con la ficha ya publicada. Un peso de holgura, por si la
     # tienda redondea distinto en la API que en el HTML.
@@ -690,6 +703,31 @@ async def _sin_novedad(lecturas: List[Tuple[Dict[str, Any], Dict[str, Any]]],
 # ---------------------------------------------------------------------------
 # La pasada
 # ---------------------------------------------------------------------------
+async def _confirmar(enlace: Dict[str, Any], clave: str,
+                     estado: Dict[str, Any]) -> bool:
+    """Vuelve a leer la ficha y comprueba que dice lo mismo.
+
+    Una sola petición, y solo cuando se va a afirmar que algo se agotó. Sale
+    más barato que un mensaje equivocado: el grupo deja de creerse los avisos
+    mucho antes de lo que cuesta una petición de más.
+    """
+    await asyncio.sleep(2)
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as cliente:
+            segundas = await leer(cliente, enlace["url"])
+    except Exception as exc:  # noqa: BLE001
+        log("warn", "vigilancia", f"No se pudo confirmar {clave}: {exc}")
+        return False
+
+    for otra in segundas:
+        if otra.get("error"):
+            continue
+        if _clave(enlace["url"], otra) != clave:
+            continue
+        return (otra.get("stock") or STOCK_UNKNOWN) == estado.get("stock")
+    return False
+
+
 async def revisar() -> Dict[str, Any]:
     """Mira todos los enlaces vigilados y anuncia lo que haya cambiado."""
     from app.services import notify
@@ -734,6 +772,18 @@ async def revisar() -> Dict[str, Any]:
         if not cambio:
             _guardar(clave, enlace, estado, avisado=False)
             continue
+
+        # «Se agotó» se confirma con una segunda lectura antes de contarlo. Es
+        # el aviso que más fácil sale mal —basta una respuesta rara de la
+        # tienda— y el que menos prisa tiene: a nadie le urge enterarse de que
+        # algo ya no está. «Ya se puede comprar», al revés, sale en cuanto se
+        # ve: ahí un minuto de retraso sí cuesta.
+        if cambio.get("confirmar"):
+            if not await _confirmar(enlace, clave, estado):
+                log("info", "vigilancia",
+                    f"No se anuncia que se agotó {clave}: la segunda lectura "
+                    f"no lo confirma")
+                continue
 
         texto = _mensaje(enlace, estado, cambio)
         if simulacion or not encendido:
@@ -856,7 +906,16 @@ def _guardar(clave: str, enlace: Dict[str, Any], estado: Dict[str, Any],
                    etiqueta     = excluded.etiqueta,
                    nombre       = COALESCE(excluded.nombre, vigilancia.nombre),
                    price        = excluded.price,
-                   stock_status = excluded.stock_status,
+                   -- Una lectura que no supo determinar el stock NO pisa la
+                   -- que sí lo sabía. Si lo hiciera, el estado guardado se
+                   -- degradaría a «desconocido» y la siguiente lectura buena
+                   -- parecería un cambio: «ya se puede comprar» de algo que
+                   -- nunca dejó de estar a la venta.
+                   stock_status = CASE
+                       WHEN excluded.stock_status IS NULL
+                         OR excluded.stock_status = 'unknown'
+                       THEN vigilancia.stock_status
+                       ELSE excluded.stock_status END,
                    http_status  = excluded.http_status,
                    image_url    = COALESCE(excluded.image_url, vigilancia.image_url),
                    visto_at     = excluded.visto_at,
