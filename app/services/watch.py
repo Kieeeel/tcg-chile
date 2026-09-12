@@ -128,9 +128,20 @@ def _normalizar(url: str) -> str:
 # ---------------------------------------------------------------------------
 # El orden importa: «PreOrder» se comprueba antes que «InStock» porque hay
 # tiendas que declaran las dos cosas en la misma ficha.
+#
+# `BackOrder` va con los agotados, y no con las preventas, aunque el nombre
+# invite a lo contrario. Fue un error mío tenerlo arriba: Piedra Bruja declara
+# `BackOrder` en cuatro fichas que Shopify marca `available: false` y que la
+# propia página rotula «Agotado» y «No disponible». Como `preorder` cuenta
+# como comprable, el bot anunciaba «YA SE PUEDE RESERVAR» de algo agotado —y
+# «SE AGOTÓ» en cuanto volvía a leerlo por el otro camino—.
+#
+# Comprobado sobre las dieciséis fichas vigiladas: solo aparecen `OutOfStock`
+# y `BackOrder`, y ninguna tienda usa `BackOrder` para una preventa abierta.
+# Es además lo que ya hacía `parse_stock`, que nunca lo tuvo como preventa.
 _DISPONIBILIDAD = (
-    (STOCK_PREORDER, ("preorder", "presale", "preventa", "backorder")),
-    (STOCK_OUT, ("outofstock", "soldout", "discontinued")),
+    (STOCK_PREORDER, ("preorder", "presale", "preventa")),
+    (STOCK_OUT, ("outofstock", "soldout", "discontinued", "backorder")),
     (STOCK_IN, ("instock", "limitedavailability", "onlineonly", "instoreonly")),
 )
 
